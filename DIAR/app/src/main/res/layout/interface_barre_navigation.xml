@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/barre_navigation_etudiant"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:background="#FFFFFF"
+    android:elevation="8dp"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:weightSum="5">
+
+    <!-- ACCUEIL -->
+    <LinearLayout
+        android:id="@+id/nav_accueil"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackgroundBorderless">
+
+        <ImageView
+            android:id="@+id/icon_accueil"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_homee"
+            app:tint="#5F6B7A"/>
+
+        <TextView
+            android:id="@+id/text_accueil"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Accueil"
+            android:textColor="#5F6B7A"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+    <!-- CARTE -->
+    <LinearLayout
+        android:id="@+id/nav_carte"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackgroundBorderless">
+
+        <ImageView
+            android:id="@+id/icon_carte"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_map"
+            app:tint="#5F6B7A"/>
+
+        <TextView
+            android:id="@+id/text_carte"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Carte"
+            android:textColor="#5F6B7A"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+    <!-- FAVORIS -->
+    <LinearLayout
+        android:id="@+id/nav_favoris"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackgroundBorderless">
+
+        <ImageView
+            android:id="@+id/icon_favoris"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_heart"
+            app:tint="#5F6B7A"/>
+
+        <TextView
+            android:id="@+id/text_favoris"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Favoris"
+            android:textColor="#5F6B7A"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+    <!-- CHAT -->
+    <LinearLayout
+        android:id="@+id/nav_chat"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackgroundBorderless">
+
+        <ImageView
+            android:id="@+id/icon_chat"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_chatt"
+            app:tint="#5F6B7A"/>
+
+        <TextView
+            android:id="@+id/text_chat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chat"
+            android:textColor="#5F6B7A"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+    <!-- PROFIL -->
+    <LinearLayout
+        android:id="@+id/nav_profil"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackgroundBorderless">
+
+        <ImageView
+            android:id="@+id/icon_profil"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_user"
+            app:tint="#5F6B7A"/>
+
+        <TextView
+            android:id="@+id/text_profil"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Profil"
+            android:textColor="#5F6B7A"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+</LinearLayout>

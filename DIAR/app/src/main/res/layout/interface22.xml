@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8FAFC">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp"
+        android:text="Mon profil"
+        android:textColor="#0F2851"
+        android:textSize="25sp"
+        android:textStyle="bold" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <FrameLayout
+                android:layout_width="110dp"
+                android:layout_height="110dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
+                    app:cardCornerRadius="55dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#FFFFFF">
+
+                    <ImageView
+                        android:id="@+id/imgProfilProprietaire"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/ic_person"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Photo de profil" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:layout_gravity="bottom|end"
+                    app:cardCornerRadius="17dp"
+                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="#00A86B">
+
+                    <ImageButton
+                        android:id="@+id/btnChangerPhoto"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/icon_camera_profil"
+                        android:scaleType="centerInside"
+                        android:padding="7dp"
+                        android:contentDescription="Changer photo" />
+                </com.google.android.material.card.MaterialCardView>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Appuyez sur la caméra pour changer la photo"
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvNomProfil"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Nom du propriétaire"
+                android:textColor="#0F2851"
+                android:textSize="21sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRoleProfil"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Propriétaire DIAR"
+                android:textColor="#00A86B"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Informations personnelles"
+                        android:textColor="#0F2851"
+                        android:textStyle="bold"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:text="Nom complet"
+                        android:textColor="#64748B"
+                        android:textSize="12sp" />
+
+                    <EditText
+                        android:id="@+id/edtNomProfil"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="Votre nom"
+                        android:singleLine="true"
+                        android:textColor="#0F172A"
+                        android:textSize="14sp"
+                        android:background="#FFFFFF"
+                        android:paddingStart="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Adresse email"
+                        android:textColor="#64748B"
+                        android:textSize="12sp" />
+
+                    <EditText
+                        android:id="@+id/edtEmailProfil"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="Votre email"
+                        android:inputType="textEmailAddress"
+                        android:singleLine="true"
+                        android:textColor="#0F172A"
+                        android:textSize="14sp"
+                        android:background="#FFFFFF"
+                        android:paddingStart="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnModifierProfil"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="20dp"
+                        android:text="Enregistrer les modifications"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#00A86B"
+                        app:cornerRadius="26dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="  Changer le mot de passe"
+                        android:textColor="#0F2851"
+                        android:textStyle="bold"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Ancien mot de passe"
+                        android:textColor="#64748B"
+                        android:textSize="12sp" />
+
+                    <EditText
+                        android:id="@+id/edtAncienMotDePasse"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="Ancien mot de passe"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:textColor="#0F172A"
+                        android:textSize="14sp"
+                        android:background="#FFFFFF"
+                        android:paddingStart="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Nouveau mot de passe"
+                        android:textColor="#64748B"
+                        android:textSize="12sp" />
+
+                    <EditText
+                        android:id="@+id/edtNouveauMotDePasse"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="Nouveau mot de passe"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:textColor="#0F172A"
+                        android:textSize="14sp"
+                        android:background="#FFFFFF"
+                        android:paddingStart="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Confirmer le mot de passe"
+                        android:textColor="#64748B"
+                        android:textSize="12sp" />
+
+                    <EditText
+                        android:id="@+id/edtConfirmerMotDePasse"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="Confirmer le mot de passe"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:textColor="#0F172A"
+                        android:textSize="14sp"
+                        android:background="#FFFFFF"
+                        android:paddingStart="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnChangerMotDePasse"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="18dp"
+                        android:text="Changer le mot de passe"
+                        android:textAllCaps="false"
+                        android:textColor="#0F2851"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#E0F2FE"
+                        app:cornerRadius="26dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDeconnexionProfil"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="16dp"
+                android:text="Déconnexion"
+                android:textAllCaps="false"
+                android:textColor="#DC2626"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:backgroundTint="#FEE2E2"
+                app:cornerRadius="26dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <include
+        android:id="@+id/barre_navigation_etudiant"
+        layout="@layout/interface_barre_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:visibility="gone"/>
+
+    <include
+        android:id="@+id/barre_navigation_proprietaire"
+        layout="@layout/interface_barre_proprietaire"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:visibility="gone"/>
+
+</LinearLayout>
