@@ -440,6 +440,7 @@ public class DetailAnnonce extends AppCompatActivity {
         );
 
         intent.putExtra("idAnnonce", idAnnonce);
+        intent.putExtra("annonceId", idAnnonce);
         intent.putExtra("etudiantEmail", etudiantEmail);
         intent.putExtra("etudiantNom", etudiantNom);
         intent.putExtra("proprietaireEmail", proprietaireEmail);

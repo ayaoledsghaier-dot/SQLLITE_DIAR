@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.content.ContentValues;
@@ -10,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "diar.db";
-    private static final int DATABASE_VERSION = 8;
+    private static final int DATABASE_VERSION = 9;
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -104,7 +103,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private void createAuxiliaryTables(SQLiteDatabase db) {
 
-        // Favoris logements
         db.execSQL("CREATE TABLE IF NOT EXISTS Favoris (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "emailEtudiant TEXT NOT NULL," +
@@ -112,7 +110,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "UNIQUE(emailEtudiant, annonce_id)," +
                 "FOREIGN KEY(annonce_id) REFERENCES Annonce(id) ON DELETE CASCADE)");
 
-        // Favoris colocataires
         db.execSQL("CREATE TABLE IF NOT EXISTS FavorisColocataires (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "emailEtudiant TEXT NOT NULL," +
@@ -120,7 +117,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "UNIQUE(emailEtudiant, colocataire_id)," +
                 "FOREIGN KEY(colocataire_id) REFERENCES Etudiant(id) ON DELETE CASCADE)");
 
-        // Reservations
         db.execSQL("CREATE TABLE IF NOT EXISTS Reservation (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "annonce_id INTEGER NOT NULL," +
@@ -130,7 +126,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "statut TEXT DEFAULT 'En attente'," +
                 "FOREIGN KEY(annonce_id) REFERENCES Annonce(id) ON DELETE CASCADE)");
 
-        // Conversations
         db.execSQL("CREATE TABLE IF NOT EXISTS Conversation (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "emailEtudiant TEXT NOT NULL," +
@@ -140,7 +135,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "dateCreation TEXT," +
                 "UNIQUE(emailEtudiant, emailProprietaire))");
 
-        // Messages
         db.execSQL("CREATE TABLE IF NOT EXISTS Message (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "conversation_id INTEGER NOT NULL," +
@@ -149,6 +143,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "dateEnvoi TEXT," +
                 "lu INTEGER DEFAULT 0," +
                 "FOREIGN KEY(conversation_id) REFERENCES Conversation(id) ON DELETE CASCADE)");
+
+        // NOTIFICATIONS ETUDIANT
+        db.execSQL("CREATE TABLE IF NOT EXISTS Notification (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "emailEtudiant TEXT NOT NULL," +
+                "titre TEXT," +
+                "message TEXT," +
+                "lu INTEGER DEFAULT 0," +
+                "dateCreation INTEGER)");
     }
 
     // =====================================
@@ -164,7 +167,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             createCoreTables(db);
 
-            // Colonnes Etudiant
             addColumnIfNotExists(db, "Etudiant", "nomComplet", "TEXT");
             addColumnIfNotExists(db, "Etudiant", "email", "TEXT");
             addColumnIfNotExists(db, "Etudiant", "motDePasse", "TEXT");
@@ -187,13 +189,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             addColumnIfNotExists(db, "Etudiant", "proprete", "TEXT");
             addColumnIfNotExists(db, "Etudiant", "attestationPath", "TEXT");
 
-            // Colonnes Proprietaire
             addColumnIfNotExists(db, "Proprietaire", "nom", "TEXT");
             addColumnIfNotExists(db, "Proprietaire", "email", "TEXT");
             addColumnIfNotExists(db, "Proprietaire", "motDePasse", "TEXT");
             addColumnIfNotExists(db, "Proprietaire", "photoPath", "TEXT");
 
-            // Colonnes Annonce
             addColumnIfNotExists(db, "Annonce", "titre", "TEXT");
             addColumnIfNotExists(db, "Annonce", "description", "TEXT");
             addColumnIfNotExists(db, "Annonce", "ville", "TEXT");
@@ -210,7 +210,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             addColumnIfNotExists(db, "Annonce", "disponible", "INTEGER DEFAULT 1");
             addColumnIfNotExists(db, "Annonce", "emailProprietaire", "TEXT");
 
-            // Creer les tables supplementaires
             createAnnoncePhotoTable(db);
             createAuxiliaryTables(db);
 
@@ -236,7 +235,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         try {
             while (cursor.moveToNext()) {
-
                 String columnName = cursor.getString(
                         cursor.getColumnIndexOrThrow("name")
                 );
@@ -246,7 +244,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     break;
                 }
             }
-
         } finally {
             cursor.close();
         }
@@ -306,7 +303,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getEtudiant(String email) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Etudiant WHERE email=?",
                 new String[]{email}
@@ -332,10 +328,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("niveau", niveau);
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
@@ -356,10 +349,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("ville", ville);
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
@@ -380,25 +370,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("quartier", quartier);
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
-    public boolean updatePhotoEtudiant(
-            String email,
-            String photoPath) {
+    public boolean updatePhotoEtudiant(String email, String photoPath) {
 
         ContentValues values = new ContentValues();
         values.put("photoUrl", photoPath);
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
@@ -406,9 +388,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // VERIFICATION ET ATTESTATION
     // =====================================
 
-    public boolean enregistrerAttestation(
-            String email,
-            String path) {
+    public boolean enregistrerAttestation(String email, String path) {
 
         ContentValues values = new ContentValues();
 
@@ -416,30 +396,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("statutVerification", "En attente");
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
-    public boolean modifierStatutVerification(
-            String email,
-            String statut) {
+    public boolean modifierStatutVerification(String email, String statut) {
 
         ContentValues values = new ContentValues();
         values.put("statutVerification", statut);
 
         return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=?",
-                new String[]{email}
+                "Etudiant", values, "email=?", new String[]{email}
         ) > 0;
     }
 
     public Cursor getAttestationEtudiant(String email) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT attestationPath, statutVerification " +
                         "FROM Etudiant WHERE email=?",
@@ -502,25 +473,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getProprietaire(String email) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Proprietaire WHERE email=?",
                 new String[]{email}
         );
     }
 
-    public boolean updatePhotoProprietaire(
-            String email,
-            String photoPath) {
+    public boolean updatePhotoProprietaire(String email, String photoPath) {
 
         ContentValues values = new ContentValues();
         values.put("photoPath", photoPath);
 
         return getWritableDatabase().update(
-                "Proprietaire",
-                values,
-                "email=?",
-                new String[]{email}
+                "Proprietaire", values, "email=?", new String[]{email}
         ) > 0;
     }
 
@@ -532,10 +497,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("nom", nouveauNom);
 
         return getWritableDatabase().update(
-                "Proprietaire",
-                values,
-                "email=?",
-                new String[]{email}
+                "Proprietaire", values, "email=?", new String[]{email}
         ) > 0;
     }
 
@@ -599,7 +561,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getToutesLesAnnonces() {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Annonce WHERE disponible=1 ORDER BY id DESC",
                 null
@@ -607,15 +568,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getAnnoncesProprietaire(String email) {
-
         return getReadableDatabase().rawQuery(
-                "SELECT * FROM Annonce WHERE emailProprietaire=? ORDER BY id DESC",
-                new String[]{email}
+                "SELECT * FROM Annonce WHERE LOWER(TRIM(emailProprietaire))=? ORDER BY id DESC",
+                new String[]{normaliserEmail(email)}
         );
     }
 
     public Cursor getAnnonce(long id) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Annonce WHERE id=?",
                 new String[]{String.valueOf(id)}
@@ -623,11 +582,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public boolean supprimerAnnonce(long annonceId) {
-
         return getWritableDatabase().delete(
-                "Annonce",
-                "id=?",
-                new String[]{String.valueOf(annonceId)}
+                "Annonce", "id=?", new String[]{String.valueOf(annonceId)}
         ) > 0;
     }
 
@@ -650,9 +606,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // PHOTOS ANNONCES
     // =====================================
 
-    public boolean ajouterPhotoAnnonce(
-            long annonceId,
-            String photoPath) {
+    public boolean ajouterPhotoAnnonce(long annonceId, String photoPath) {
 
         ContentValues values = new ContentValues();
 
@@ -665,7 +619,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getPhotosAnnonce(long annonceId) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM AnnoncePhoto WHERE annonce_id=?",
                 new String[]{String.valueOf(annonceId)}
@@ -676,9 +629,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // FAVORIS LOGEMENTS
     // =====================================
 
-    public boolean ajouterFavori(
-            String emailEtudiant,
-            long annonceId) {
+    public boolean ajouterFavori(String emailEtudiant, long annonceId) {
 
         ContentValues values = new ContentValues();
 
@@ -693,22 +644,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ) != -1;
     }
 
-    public boolean supprimerFavori(
-            String emailEtudiant,
-            long annonceId) {
-
+    public boolean supprimerFavori(String emailEtudiant, long annonceId) {
         return getWritableDatabase().delete(
                 "Favoris",
                 "emailEtudiant=? AND annonce_id=?",
-                new String[]{
-                        emailEtudiant,
-                        String.valueOf(annonceId)
-                }
+                new String[]{emailEtudiant, String.valueOf(annonceId)}
         ) > 0;
     }
 
     public Cursor getFavoris(String emailEtudiant) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT Annonce.* FROM Annonce " +
                         "INNER JOIN Favoris ON Annonce.id=Favoris.annonce_id " +
@@ -751,10 +695,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return getWritableDatabase().delete(
                 "FavorisColocataires",
                 "emailEtudiant=? AND colocataire_id=?",
-                new String[]{
-                        emailEtudiant,
-                        String.valueOf(colocataireId)
-                }
+                new String[]{emailEtudiant, String.valueOf(colocataireId)}
         ) > 0;
     }
 
@@ -765,10 +706,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT id FROM FavorisColocataires " +
                         "WHERE emailEtudiant=? AND colocataire_id=?",
-                new String[]{
-                        emailEtudiant,
-                        String.valueOf(colocataireId)
-                }
+                new String[]{emailEtudiant, String.valueOf(colocataireId)}
         );
 
         try {
@@ -797,7 +735,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         "Etudiant.photoUrl AS photoUrl " +
                         "FROM Etudiant " +
                         "INNER JOIN FavorisColocataires " +
-                        "ON Etudiant.id = FavorisColocataires.colocataire_id " +
+                        "ON Etudiant.id=FavorisColocataires.colocataire_id " +
                         "WHERE FavorisColocataires.emailEtudiant=? " +
                         "ORDER BY FavorisColocataires.id DESC",
                 new String[]{emailEtudiant}
@@ -808,53 +746,248 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // RESERVATIONS
     // =====================================
 
+    private String normaliserEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
+    }
+
     public long ajouterReservation(
             long annonceId,
             String emailEtudiant,
             String emailProprietaire,
             String dateReservation) {
 
+        String etudiant = normaliserEmail(emailEtudiant);
+        String proprietaire = normaliserEmail(emailProprietaire);
+
+        if (annonceId <= 0 ||
+                etudiant.isEmpty() ||
+                proprietaire.isEmpty() ||
+                dateReservation == null ||
+                dateReservation.trim().isEmpty() ||
+                etudiant.equals(proprietaire)) {
+            return -1;
+        }
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id FROM Annonce " +
+                        "WHERE id=? AND disponible=1 " +
+                        "AND LOWER(TRIM(emailProprietaire))=?",
+                new String[]{
+                        String.valueOf(annonceId),
+                        proprietaire
+                }
+        );
+
+        boolean annonceValide;
+
+        try {
+            annonceValide = cursor.moveToFirst();
+        } finally {
+            cursor.close();
+        }
+
+        if (!annonceValide) {
+            return -1;
+        }
+
         ContentValues values = new ContentValues();
 
         values.put("annonce_id", annonceId);
-        values.put("emailEtudiant", emailEtudiant);
-        values.put("emailProprietaire", emailProprietaire);
-        values.put("dateReservation", dateReservation);
+        values.put("emailEtudiant", etudiant);
+        values.put("emailProprietaire", proprietaire);
+        values.put("dateReservation", dateReservation.trim());
         values.put("statut", "En attente");
 
         return getWritableDatabase().insert(
-                "Reservation", null, values
+                "Reservation",
+                null,
+                values
         );
     }
 
     public Cursor getReservationsEtudiant(String email) {
 
+        String emailNormalise = normaliserEmail(email);
+
+        if (emailNormalise.isEmpty()) {
+            return null;
+        }
+
         return getReadableDatabase().rawQuery(
-                "SELECT * FROM Reservation WHERE emailEtudiant=? ORDER BY id DESC",
-                new String[]{email}
+                "SELECT * FROM Reservation " +
+                        "WHERE LOWER(TRIM(emailEtudiant))=? " +
+                        "ORDER BY id DESC",
+                new String[]{emailNormalise}
         );
     }
 
     public Cursor getReservationsProprietaire(String email) {
 
+        String emailNormalise = normaliserEmail(email);
+
+        if (emailNormalise.isEmpty()) {
+            return null;
+        }
+
         return getReadableDatabase().rawQuery(
-                "SELECT * FROM Reservation WHERE emailProprietaire=? ORDER BY id DESC",
-                new String[]{email}
+                "SELECT * FROM Reservation " +
+                        "WHERE LOWER(TRIM(emailProprietaire))=? " +
+                        "ORDER BY id DESC",
+                new String[]{emailNormalise}
         );
     }
 
     public boolean modifierStatutReservation(
-            long id,
-            String statut) {
+            long reservationId,
+            String nouveauStatut) {
+
+        if (reservationId <= 0 || nouveauStatut == null) {
+            return false;
+        }
+
+        if (!nouveauStatut.equals("Acceptée") &&
+                !nouveauStatut.equals("Refusée")) {
+            return false;
+        }
 
         ContentValues values = new ContentValues();
-        values.put("statut", statut);
+        values.put("statut", nouveauStatut);
 
-        return getWritableDatabase().update(
+        boolean ok = getWritableDatabase().update(
                 "Reservation",
                 values,
+                "id=? AND statut=?",
+                new String[]{
+                        String.valueOf(reservationId),
+                        "En attente"
+                }
+        ) > 0;
+
+        // Quand le propriétaire accepte ou refuse, l'étudiant reçoit une notification
+        if (ok) {
+            creerNotificationReservation(reservationId, nouveauStatut);
+        }
+
+        return ok;
+    }
+
+    // =====================================
+    // NOTIFICATIONS ETUDIANT
+    // =====================================
+
+    private void creerNotificationReservation(
+            long reservationId,
+            String statut) {
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT r.emailEtudiant, r.dateReservation, a.titre " +
+                        "FROM Reservation r " +
+                        "LEFT JOIN Annonce a ON a.id = r.annonce_id " +
+                        "WHERE r.id=?",
+                new String[]{String.valueOf(reservationId)}
+        );
+
+        try {
+            if (!cursor.moveToFirst()) {
+                return;
+            }
+
+            String emailEtudiant = cursor.getString(0);
+            String date = cursor.getString(1);
+            String titreAnnonce = cursor.getString(2);
+
+            if (titreAnnonce == null || titreAnnonce.trim().isEmpty()) {
+                titreAnnonce = "le logement";
+            }
+
+            String titre;
+            String message;
+
+            if (statut.equals("Acceptée")) {
+                titre = "Demande acceptée ✅";
+                message = "Le propriétaire a accepté ta demande de visite pour \""
+                        + titreAnnonce + "\""
+                        + (date == null || date.trim().isEmpty()
+                        ? "." : " le " + date + ".");
+            } else {
+                titre = "Demande refusée ❌";
+                message = "Le propriétaire a refusé ta demande de visite pour \""
+                        + titreAnnonce + "\".";
+            }
+
+            ajouterNotification(emailEtudiant, titre, message);
+
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public long ajouterNotification(
+            String emailEtudiant,
+            String titre,
+            String message) {
+
+        ContentValues values = new ContentValues();
+
+        values.put("emailEtudiant", normaliserEmail(emailEtudiant));
+        values.put("titre", titre);
+        values.put("message", message);
+        values.put("lu", 0);
+        values.put("dateCreation", System.currentTimeMillis());
+
+        return getWritableDatabase().insert(
+                "Notification", null, values
+        );
+    }
+
+    public Cursor getNotificationsEtudiant(String email) {
+
+        return getReadableDatabase().rawQuery(
+                "SELECT * FROM Notification " +
+                        "WHERE LOWER(TRIM(emailEtudiant))=? " +
+                        "ORDER BY id DESC",
+                new String[]{normaliserEmail(email)}
+        );
+    }
+
+    public int compterNotificationsNonLues(String email) {
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM Notification " +
+                        "WHERE LOWER(TRIM(emailEtudiant))=? AND lu=0",
+                new String[]{normaliserEmail(email)}
+        );
+
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public boolean marquerNotificationLue(long notificationId) {
+
+        ContentValues values = new ContentValues();
+        values.put("lu", 1);
+
+        return getWritableDatabase().update(
+                "Notification",
+                values,
                 "id=?",
-                new String[]{String.valueOf(id)}
+                new String[]{String.valueOf(notificationId)}
+        ) > 0;
+    }
+
+    public boolean marquerToutesNotificationsLues(String email) {
+
+        ContentValues values = new ContentValues();
+        values.put("lu", 1);
+
+        return getWritableDatabase().update(
+                "Notification",
+                values,
+                "LOWER(TRIM(emailEtudiant))=? AND lu=0",
+                new String[]{normaliserEmail(email)}
         ) > 0;
     }
 
@@ -889,10 +1022,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             Cursor cursor = getReadableDatabase().rawQuery(
                     "SELECT id FROM Conversation " +
                             "WHERE emailEtudiant=? AND emailProprietaire=?",
-                    new String[]{
-                            emailEtudiant,
-                            emailProprietaire
-                    }
+                    new String[]{emailEtudiant, emailProprietaire}
             );
 
             try {
@@ -908,7 +1038,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getConversationsEtudiant(String email) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Conversation WHERE emailEtudiant=? ORDER BY id DESC",
                 new String[]{email}
@@ -916,7 +1045,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getConversationsProprietaire(String email) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Conversation WHERE emailProprietaire=? ORDER BY id DESC",
                 new String[]{email}
@@ -946,7 +1074,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getMessages(long conversationId) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT * FROM Message WHERE conversation_id=? ORDER BY id ASC",
                 new String[]{String.valueOf(conversationId)}

@@ -71,6 +71,7 @@
         <activity android:name=".ChatEtudiant" android:exported="false" />
         <activity android:name=".Interface15" android:exported="false"/>
         <activity android:name=".DetailAnnonceProp" />
+        <activity android:name=".NotificationsActivity" android:exported="false" />
 
 
     </application>

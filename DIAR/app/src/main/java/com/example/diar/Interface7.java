@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.content.Intent;
@@ -32,6 +31,10 @@ public class Interface7 extends AppCompatActivity {
 
     private TextView tvBonjour, tvUniversite;
     private ImageView ivUserPhoto;
+
+    // Notifications
+    private View btnNotifications;
+    private TextView tvNotificationCount;
 
     private EditText etSearch;
     private RecyclerView rvAnnonces;
@@ -72,6 +75,22 @@ public class Interface7 extends AppCompatActivity {
         tvBonjour = findViewById(R.id.tvBonjour);
         tvUniversite = findViewById(R.id.tvUniversite);
         ivUserPhoto = findViewById(R.id.ivUserPhoto);
+
+        // Notifications
+        btnNotifications = findViewById(R.id.btnNotifications);
+        tvNotificationCount = findViewById(R.id.tvNotificationCount);
+
+        if (btnNotifications != null) {
+            btnNotifications.setOnClickListener(v -> {
+                Intent intent = new Intent(
+                        Interface7.this,
+                        NotificationsActivity.class
+                );
+
+                intent.putExtra("USER_EMAIL", userEmail);
+                startActivity(intent);
+            });
+        }
 
         // Recherche et annonces
         etSearch = findViewById(R.id.etSearch);
@@ -205,8 +224,29 @@ public class Interface7 extends AppCompatActivity {
                 && !userEmail.trim().isEmpty()) {
 
             chargerProfil();
+            mettreAJourBadgeNotifications();
             chargerAnnonces();
             verifierEtAfficherColocs();
+        }
+    }
+
+    // =========================================
+    // BADGE NOTIFICATIONS
+    // =========================================
+
+    private void mettreAJourBadgeNotifications() {
+
+        if (tvNotificationCount == null) return;
+
+        int nombre = databaseHelper.compterNotificationsNonLues(userEmail);
+
+        if (nombre > 0) {
+            tvNotificationCount.setText(
+                    nombre > 9 ? "9+" : String.valueOf(nombre)
+            );
+            tvNotificationCount.setVisibility(View.VISIBLE);
+        } else {
+            tvNotificationCount.setVisibility(View.GONE);
         }
     }
 

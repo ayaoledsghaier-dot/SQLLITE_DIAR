@@ -22,21 +22,21 @@ public class SessionManager {
         );
     }
 
-    public void sauvegarderSession(String email, String nom) {
-        sauvegarderSession(email, nom, "ETUDIANT");
-    }
-
     public void sauvegarderSession(
             String email,
             String nom,
             String typeCompte
     ) {
         prefs.edit()
-                .putString(KEY_EMAIL, email)
+                .putString(KEY_EMAIL, normaliserEmail(email))
                 .putString(KEY_NOM, nom)
                 .putString(KEY_TYPE, typeCompte)
                 .putBoolean(KEY_IS_LOGGED_IN, true)
                 .apply();
+    }
+
+    public void sauvegarderSession(String email, String nom) {
+        sauvegarderSession(email, nom, "ETUDIANT");
     }
 
     public void saveSession(
@@ -48,25 +48,21 @@ public class SessionManager {
     }
 
     public void saveSession(String email, String nom) {
-        sauvegarderSession(email, nom);
+        sauvegarderSession(email, nom, "ETUDIANT");
     }
 
     public void saveEmail(String email) {
         prefs.edit()
-                .putString(KEY_EMAIL, email)
+                .putString(KEY_EMAIL, normaliserEmail(email))
                 .apply();
     }
 
     public void saveNom(String nom) {
-        prefs.edit()
-                .putString(KEY_NOM, nom)
-                .apply();
+        prefs.edit().putString(KEY_NOM, nom).apply();
     }
 
     public void saveType(String type) {
-        prefs.edit()
-                .putString(KEY_TYPE, type)
-                .apply();
+        prefs.edit().putString(KEY_TYPE, type).apply();
     }
 
     public String getEmail() {
@@ -91,5 +87,12 @@ public class SessionManager {
 
     public void clearSession() {
         logout();
+    }
+
+    public static String normaliserEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase();
     }
 }

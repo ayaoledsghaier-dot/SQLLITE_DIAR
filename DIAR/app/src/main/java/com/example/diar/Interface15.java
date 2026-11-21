@@ -3,9 +3,12 @@ package com.example.diar;
 
 import android.app.DatePickerDialog;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,10 +33,10 @@ public class Interface15 extends AppCompatActivity {
     private MaterialCardView[] heureCards;
 
     private String dateSelectionnee = "";
-    private String heureSelectionnee = "";
+    private String heureSelectionnee = "14:00";
 
-    private long annonceId;
-    private String emailProprietaire;
+    private long annonceId = -1;
+    private String emailProprietaire = "";
 
     private final int vert = Color.rgb(0, 168, 107);
     private final int gris = Color.rgb(226, 232, 240);
@@ -53,12 +56,8 @@ public class Interface15 extends AppCompatActivity {
 
         annonceId = intent.getLongExtra("annonceId", -1);
 
-        emailProprietaire =
-                intent.getStringExtra("emailProprietaire");
-
-        if (emailProprietaire == null) {
-            emailProprietaire = intent.getStringExtra("email");
-        }
+        // Récupérer l'email du propriétaire depuis l'annonce SQLite
+        emailProprietaire = recupererEmailProprietaire(annonceId);
 
         dateCards = new MaterialCardView[]{
                 findViewById(R.id.cardDate1),
@@ -94,14 +93,54 @@ public class Interface15 extends AppCompatActivity {
             });
         }
 
-        // Heure sélectionnée par défaut
-        heureSelectionnee = "14:00";
         selectionnerHeure(1);
 
         btnSubmit.setOnClickListener(v -> envoyerDemande());
 
         NavigationEtudiant.setup(this, 2);
     }
+
+    // =====================================
+    // RECUPERER EMAIL PROPRIETAIRE
+    // =====================================
+
+    private String recupererEmailProprietaire(long id) {
+
+        if (id <= 0) {
+            return "";
+        }
+
+        Cursor cursor = databaseHelper.getAnnonce(id);
+
+        if (cursor == null) {
+            return "";
+        }
+
+        String email = "";
+
+        try {
+            if (cursor.moveToFirst()) {
+
+                int index = cursor.getColumnIndex("emailProprietaire");
+
+                if (index != -1) {
+                    email = cursor.getString(index);
+                }
+            }
+        } finally {
+            cursor.close();
+        }
+
+        if (email == null) {
+            return "";
+        }
+
+        return email.trim().toLowerCase();
+    }
+
+    // =====================================
+    // CALENDRIER
+    // =====================================
 
     private void ouvrirCalendrier(int index) {
 
@@ -120,9 +159,7 @@ public class Interface15 extends AppCompatActivity {
                                     Locale.getDefault()
                             );
 
-                    dateSelectionnee = format.format(
-                            choix.getTime()
-                    );
+                    dateSelectionnee = format.format(choix.getTime());
 
                     selectionnerDate(index, choix);
 
@@ -139,12 +176,16 @@ public class Interface15 extends AppCompatActivity {
         dialog.show();
     }
 
+    // =====================================
+    // SELECTION DATE
+    // =====================================
+
     private void selectionnerDate(int index, Calendar choix) {
 
-        for (int i = 0; i < dateCards.length; i++) {
-            dateCards[i].setStrokeColor(gris);
-            dateCards[i].setStrokeWidth(1);
-            dateCards[i].setCardBackgroundColor(Color.WHITE);
+        for (MaterialCardView card : dateCards) {
+            card.setStrokeColor(gris);
+            card.setStrokeWidth(1);
+            card.setCardBackgroundColor(Color.WHITE);
         }
 
         dateCards[index].setStrokeColor(vert);
@@ -153,38 +194,52 @@ public class Interface15 extends AppCompatActivity {
                 Color.rgb(240, 253, 244)
         );
 
-        TextView jour = (TextView)
-                ((android.widget.LinearLayout)
-                        dateCards[index].getChildAt(0))
-                        .getChildAt(0);
+        if (dateCards[index].getChildAt(0) instanceof LinearLayout) {
 
-        TextView numero = (TextView)
-                ((android.widget.LinearLayout)
-                        dateCards[index].getChildAt(0))
-                        .getChildAt(1);
+            LinearLayout contenu =
+                    (LinearLayout) dateCards[index].getChildAt(0);
 
-        SimpleDateFormat jourFormat =
-                new SimpleDateFormat("EEE", Locale.FRENCH);
+            if (contenu.getChildCount() >= 2 &&
+                    contenu.getChildAt(0) instanceof TextView &&
+                    contenu.getChildAt(1) instanceof TextView) {
 
-        SimpleDateFormat dateFormat =
-                new SimpleDateFormat("dd/MM", Locale.getDefault());
+                TextView jour =
+                        (TextView) contenu.getChildAt(0);
 
-        jour.setText(jourFormat.format(choix.getTime()));
-        numero.setText(dateFormat.format(choix.getTime()));
+                TextView numero =
+                        (TextView) contenu.getChildAt(1);
+
+                SimpleDateFormat jourFormat =
+                        new SimpleDateFormat("EEE", Locale.FRENCH);
+
+                SimpleDateFormat dateFormat =
+                        new SimpleDateFormat("dd/MM", Locale.getDefault());
+
+                jour.setText(jourFormat.format(choix.getTime()));
+                numero.setText(dateFormat.format(choix.getTime()));
+            }
+        }
     }
+
+    // =====================================
+    // SELECTION HEURE
+    // =====================================
 
     private void selectionnerHeure(int index) {
 
-        for (int i = 0; i < heureCards.length; i++) {
-            heureCards[i].setStrokeColor(gris);
-            heureCards[i].setStrokeWidth(1);
-            heureCards[i].setCardBackgroundColor(Color.WHITE);
+        for (MaterialCardView card : heureCards) {
 
-            TextView tv = (TextView)
-                    heureCards[i].getChildAt(0);
+            card.setStrokeColor(gris);
+            card.setStrokeWidth(1);
+            card.setCardBackgroundColor(Color.WHITE);
 
-            tv.setTextColor(Color.rgb(30, 41, 59));
-            tv.setTypeface(null, android.graphics.Typeface.NORMAL);
+            if (card.getChildAt(0) instanceof TextView) {
+
+                TextView tv = (TextView) card.getChildAt(0);
+
+                tv.setTextColor(Color.rgb(30, 41, 59));
+                tv.setTypeface(null, android.graphics.Typeface.NORMAL);
+            }
         }
 
         heureCards[index].setStrokeColor(vert);
@@ -193,77 +248,131 @@ public class Interface15 extends AppCompatActivity {
                 Color.rgb(240, 253, 244)
         );
 
-        TextView selected = (TextView)
-                heureCards[index].getChildAt(0);
+        if (heureCards[index].getChildAt(0) instanceof TextView) {
 
-        selected.setTextColor(vert);
-        selected.setTypeface(
-                null,
-                android.graphics.Typeface.BOLD
-        );
+            TextView selected =
+                    (TextView) heureCards[index].getChildAt(0);
+
+            selected.setTextColor(vert);
+            selected.setTypeface(
+                    null,
+                    android.graphics.Typeface.BOLD
+            );
+        }
     }
+
+    // =====================================
+    // ENVOYER DEMANDE
+    // =====================================
 
     private void envoyerDemande() {
 
-        String emailEtudiant = sessionManager.getEmail();
+        String emailEtudiant =
+                sessionManager.getEmail().trim().toLowerCase();
 
-        if (emailEtudiant == null ||
-                emailEtudiant.trim().isEmpty()) {
+        // Vérifier connexion
+        if (!sessionManager.isLoggedIn() ||
+                emailEtudiant.isEmpty()) {
 
             Toast.makeText(
                     this,
-                    "Veuillez vous connecter",
+                    "Veuillez vous connecter avec votre compte étudiant.",
                     Toast.LENGTH_LONG
             ).show();
+
             return;
         }
+
+        // Vérifier type de compte
+        String typeCompte = sessionManager.getTypeCompte();
+
+        if (!typeCompte.isEmpty() &&
+                !typeCompte.equalsIgnoreCase("ETUDIANT")) {
+
+            Toast.makeText(
+                    this,
+                    "Connectez-vous avec un compte étudiant.",
+                    Toast.LENGTH_LONG
+            ).show();
+
+            return;
+        }
+
+        Log.d("DIAR_ID", "annonceId = " + annonceId);
 
         if (annonceId <= 0) {
             Toast.makeText(
                     this,
-                    "Annonce introuvable",
+                    "Annonce introuvable. ID = " + annonceId,
                     Toast.LENGTH_LONG
             ).show();
+
             return;
         }
 
         if (emailProprietaire == null ||
-                emailProprietaire.trim().isEmpty()) {
+                emailProprietaire.isEmpty()) {
 
             Toast.makeText(
                     this,
-                    "Email du propriétaire introuvable",
+                    "Email du propriétaire introuvable.",
                     Toast.LENGTH_LONG
             ).show();
+
+            return;
+        }
+
+        if (emailEtudiant.equals(emailProprietaire)) {
+
+            Toast.makeText(
+                    this,
+                    "Vous ne pouvez pas réserver votre propre annonce.",
+                    Toast.LENGTH_LONG
+            ).show();
+
             return;
         }
 
         if (dateSelectionnee.isEmpty()) {
+
             Toast.makeText(
                     this,
-                    "Veuillez choisir une date",
+                    "Veuillez choisir une date.",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
         if (heureSelectionnee.isEmpty()) {
+
             Toast.makeText(
                     this,
-                    "Veuillez choisir une heure",
+                    "Veuillez choisir une heure.",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
         String dateReservation =
                 dateSelectionnee + " " + heureSelectionnee;
 
+        // Enregistrer dans SQLite
         long resultat = databaseHelper.ajouterReservation(
                 annonceId,
                 emailEtudiant,
                 emailProprietaire,
                 dateReservation
+        );
+
+        Log.d(
+                "DIAR_RESERVATION",
+                "ID=" + resultat +
+                        " | Etudiant=" + emailEtudiant +
+                        " | Proprietaire=" + emailProprietaire +
+                        " | Annonce=" + annonceId +
+                        " | Date=" + dateReservation
         );
 
         if (resultat != -1) {
@@ -280,11 +389,15 @@ public class Interface15 extends AppCompatActivity {
 
             Toast.makeText(
                     this,
-                    "Erreur lors de l'envoi de la demande",
+                    "Erreur lors de l'envoi. Vérifiez l'annonce et son propriétaire.",
                     Toast.LENGTH_LONG
             ).show();
         }
     }
+
+    // =====================================
+    // FERMETURE
+    // =====================================
 
     @Override
     protected void onDestroy() {
