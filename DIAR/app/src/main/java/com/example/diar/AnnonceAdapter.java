@@ -4,6 +4,7 @@ package com.example.diar;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
@@ -23,27 +24,58 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Locale;
 
-public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceViewHolder> {
+public class AnnonceAdapter
+        extends RecyclerView.Adapter<AnnonceAdapter.AnnonceViewHolder> {
+
+    private static final String TAG = "DIAR_FAVORIS";
 
     private final Context context;
     private final String baseUrl;
+    private final DatabaseHelper databaseHelper;
+    private final String userEmail;
 
     private final ArrayList<JSONObject> annonces = new ArrayList<>();
     private final ArrayList<JSONObject> annoncesOriginales = new ArrayList<>();
 
-    private final SharedPreferences preferences;
-
     public AnnonceAdapter(Context context, String baseUrl) {
+
         this.context = context;
         this.baseUrl = baseUrl;
 
-        preferences = context.getSharedPreferences(
-                "DIAR_FAVORIS",
-                Context.MODE_PRIVATE
-        );
+        databaseHelper = new DatabaseHelper(context);
+
+        // Récupérer l'email de l'étudiant connecté
+        String email = "";
+
+        SessionManager session = new SessionManager(context);
+
+        if (session.getEmail() != null) {
+            email = session.getEmail().trim();
+        }
+
+        // Fallback SharedPreferences
+        if (email.isEmpty()) {
+
+            SharedPreferences prefs =
+                    context.getSharedPreferences(
+                            "DIAR_PREFS",
+                            Context.MODE_PRIVATE
+                    );
+
+            email = prefs.getString("email_etudiant", "");
+
+            if (email == null || email.trim().isEmpty()) {
+                email = prefs.getString("USER_EMAIL", "");
+            }
+        }
+
+        userEmail = email == null
+                ? ""
+                : email.trim().toLowerCase(Locale.ROOT);
+
+        Log.d(TAG, "Email étudiant : " + userEmail);
     }
 
     // Mettre à jour les annonces
@@ -71,7 +103,7 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
 
         } else {
 
-            String recherche = texte.toLowerCase().trim();
+            String recherche = texte.toLowerCase(Locale.ROOT).trim();
 
             for (JSONObject annonce : annoncesOriginales) {
 
@@ -80,10 +112,10 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
                 String quartier = annonce.optString("quartier", "");
                 String description = annonce.optString("description", "");
 
-                if (titre.toLowerCase().contains(recherche)
-                        || ville.toLowerCase().contains(recherche)
-                        || quartier.toLowerCase().contains(recherche)
-                        || description.toLowerCase().contains(recherche)) {
+                if (titre.toLowerCase(Locale.ROOT).contains(recherche)
+                        || ville.toLowerCase(Locale.ROOT).contains(recherche)
+                        || quartier.toLowerCase(Locale.ROOT).contains(recherche)
+                        || description.toLowerCase(Locale.ROOT).contains(recherche)) {
 
                     annonces.add(annonce);
                 }
@@ -139,16 +171,18 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
 
         holder.tvLocalisation.setText("📍 " + localisation);
 
-        // Photo de l'annonce
+        // Afficher la photo
         afficherPhoto(holder.ivPhoto, annonce);
 
-        // Etat du bouton favoris
-        actualiserBoutonFavori(holder.btnFavori, idAnnonce);
+        // Afficher l'état du favori depuis SQLite
+        boolean estFavori = verifierFavori(idAnnonce);
+
+        actualiserBoutonFavori(holder.btnFavori, estFavori);
 
         // Ajouter ou retirer des favoris
         holder.btnFavori.setOnClickListener(v -> {
 
-            if (idAnnonce == -1) {
+            if (idAnnonce <= 0) {
 
                 Toast.makeText(
                         context,
@@ -159,41 +193,70 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
                 return;
             }
 
-            Set<String> favoris = new HashSet<>(
-                    preferences.getStringSet(
-                            "annonces_favorites",
-                            new HashSet<>()
-                    )
-            );
-
-            String id = String.valueOf(idAnnonce);
-
-            if (favoris.contains(id)) {
-
-                favoris.remove(id);
+            if (userEmail.isEmpty()) {
 
                 Toast.makeText(
                         context,
-                        "Annonce retirée des favoris",
-                        Toast.LENGTH_SHORT
+                        "Email étudiant introuvable. Reconnectez-vous.",
+                        Toast.LENGTH_LONG
                 ).show();
+
+                return;
+            }
+
+            boolean favoriActuel = verifierFavori(idAnnonce);
+            boolean resultat;
+
+            if (favoriActuel) {
+
+                resultat = databaseHelper.supprimerFavori(
+                        userEmail,
+                        idAnnonce
+                );
+
+                if (resultat) {
+                    Toast.makeText(
+                            context,
+                            "Annonce retirée des favoris",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
 
             } else {
 
-                favoris.add(id);
+                resultat = databaseHelper.ajouterFavori(
+                        userEmail,
+                        idAnnonce
+                );
+
+                if (resultat) {
+                    Toast.makeText(
+                            context,
+                            "Annonce ajoutée aux favoris ❤️",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+            }
+
+            if (!resultat) {
 
                 Toast.makeText(
                         context,
-                        "Annonce ajoutée aux favoris ❤️",
-                        Toast.LENGTH_SHORT
+                        "Impossible d'enregistrer le favori. Vérifiez que l'annonce existe dans SQLite.",
+                        Toast.LENGTH_LONG
                 ).show();
+
+                Log.e(
+                        TAG,
+                        "Échec opération favori : annonceId=" + idAnnonce
+                );
             }
 
-            preferences.edit()
-                    .putStringSet("annonces_favorites", favoris)
-                    .apply();
-
-            actualiserBoutonFavori(holder.btnFavori, idAnnonce);
+            // Actualiser le coeur
+            actualiserBoutonFavori(
+                    holder.btnFavori,
+                    verifierFavori(idAnnonce)
+            );
         });
 
         // Bouton détails
@@ -207,20 +270,46 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
         );
     }
 
-    // Afficher le coeur selon l'état du favori
+    // Vérifier si l'annonce est dans les favoris SQLite
+    private boolean verifierFavori(long idAnnonce) {
+
+        if (idAnnonce <= 0 || userEmail.isEmpty()) {
+            return false;
+        }
+
+        Cursor cursor = null;
+
+        try {
+
+            cursor = databaseHelper.getReadableDatabase().rawQuery(
+                    "SELECT id FROM Favoris " +
+                            "WHERE LOWER(TRIM(emailEtudiant))=? " +
+                            "AND annonce_id=?",
+                    new String[]{
+                            userEmail,
+                            String.valueOf(idAnnonce)
+                    }
+            );
+
+            return cursor.moveToFirst();
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Erreur vérification favori", e);
+            return false;
+
+        } finally {
+
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    // Actualiser le coeur
     private void actualiserBoutonFavori(
             ImageView bouton,
-            long idAnnonce) {
-
-        if (idAnnonce == -1) return;
-
-        Set<String> favoris = preferences.getStringSet(
-                "annonces_favorites",
-                new HashSet<>()
-        );
-
-        boolean estFavori = favoris != null
-                && favoris.contains(String.valueOf(idAnnonce));
+            boolean estFavori) {
 
         if (estFavori) {
 
@@ -228,20 +317,22 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
                     R.drawable.ic_favorite_filled
             );
 
+            bouton.setColorFilter(0xFFEF4444);
+
         } else {
 
             bouton.setImageResource(
                     R.drawable.ic_favorite_border
             );
-        }
 
-        bouton.setColorFilter(0xFFEF4444);
+            bouton.setColorFilter(0xFF64748B);
+        }
     }
 
     // Ouvrir la page détail
     private void ouvrirDetails(long idAnnonce) {
 
-        if (idAnnonce == -1) {
+        if (idAnnonce <= 0) {
 
             Toast.makeText(
                     context,
@@ -259,7 +350,7 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
         context.startActivity(intent);
     }
 
-    // Charger la photo enregistrée dans le téléphone
+    // Afficher la photo de l'annonce
     private void afficherPhoto(
             ImageView imageView,
             JSONObject annonce) {
@@ -295,27 +386,17 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
 
                 } else {
 
-                    Log.e(
-                            "DIAR_IMAGE",
-                            "Impossible de décoder la photo"
-                    );
+                    Log.e(TAG, "Impossible de décoder la photo");
                 }
 
             } else {
 
-                Log.e(
-                        "DIAR_IMAGE",
-                        "Photo introuvable : " + photoPath
-                );
+                Log.e(TAG, "Photo introuvable : " + photoPath);
             }
 
         } catch (Exception e) {
 
-            Log.e(
-                    "DIAR_IMAGE",
-                    "Erreur affichage photo",
-                    e
-            );
+            Log.e(TAG, "Erreur affichage photo", e);
         }
     }
 
@@ -334,9 +415,7 @@ public class AnnonceAdapter extends RecyclerView.Adapter<AnnonceAdapter.AnnonceV
         TextView tvDescription;
         TextView tvLocalisation;
 
-        // Correction : le bouton favoris est un ImageView
         ImageView btnFavori;
-
         Button btnDetails;
 
         public AnnonceViewHolder(@NonNull View itemView) {

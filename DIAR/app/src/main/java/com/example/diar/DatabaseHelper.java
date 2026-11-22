@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "diar.db";
-    private static final int DATABASE_VERSION = 9;
+    private static final int DATABASE_VERSION = 10;
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -151,7 +151,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "titre TEXT," +
                 "message TEXT," +
                 "lu INTEGER DEFAULT 0," +
-                "dateCreation INTEGER)");
+                "dateCreation INTEGER," +
+                "type TEXT DEFAULT 'reservation'," +
+                "conversationId INTEGER DEFAULT 0)");
     }
 
     // =====================================
@@ -212,6 +214,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             createAnnoncePhotoTable(db);
             createAuxiliaryTables(db);
+
+            // Notifications : nouveaux champs pour les messages
+            addColumnIfNotExists(db, "Notification", "type", "TEXT DEFAULT 'reservation'");
+            addColumnIfNotExists(db, "Notification", "conversationId", "INTEGER DEFAULT 0");
 
             db.setTransactionSuccessful();
 
@@ -625,41 +631,112 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
+
     // =====================================
     // FAVORIS LOGEMENTS
     // =====================================
 
+    public boolean estFavori(String emailEtudiant, long annonceId) {
+
+        String email = normaliserEmail(emailEtudiant);
+
+        if (email.isEmpty() || annonceId <= 0) {
+            return false;
+        }
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id FROM Favoris " +
+                        "WHERE LOWER(TRIM(emailEtudiant))=? AND annonce_id=?",
+                new String[]{
+                        email,
+                        String.valueOf(annonceId)
+                }
+        );
+
+        try {
+            return cursor.moveToFirst();
+        } finally {
+            cursor.close();
+        }
+    }
+
     public boolean ajouterFavori(String emailEtudiant, long annonceId) {
 
-        ContentValues values = new ContentValues();
+        String email = normaliserEmail(emailEtudiant);
 
-        values.put("emailEtudiant", emailEtudiant);
+        if (email.isEmpty() || annonceId <= 0) {
+            return false;
+        }
+
+        // Vérifier que l'annonce existe dans SQLite
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT id FROM Annonce WHERE id=?",
+                new String[]{String.valueOf(annonceId)}
+        );
+
+        boolean annonceExiste;
+
+        try {
+            annonceExiste = cursor.moveToFirst();
+        } finally {
+            cursor.close();
+        }
+
+        if (!annonceExiste) {
+            return false;
+        }
+
+        ContentValues values = new ContentValues();
+        values.put("emailEtudiant", email);
         values.put("annonce_id", annonceId);
 
-        return getWritableDatabase().insertWithOnConflict(
+        long resultat = getWritableDatabase().insertWithOnConflict(
                 "Favoris",
                 null,
                 values,
                 SQLiteDatabase.CONFLICT_IGNORE
-        ) != -1;
+        );
+
+        // -1 peut aussi signifier que le favori existe déjà
+        return resultat != -1 || estFavori(email, annonceId);
     }
 
     public boolean supprimerFavori(String emailEtudiant, long annonceId) {
+
+        String email = normaliserEmail(emailEtudiant);
+
+        if (email.isEmpty() || annonceId <= 0) {
+            return false;
+        }
+
         return getWritableDatabase().delete(
                 "Favoris",
-                "emailEtudiant=? AND annonce_id=?",
-                new String[]{emailEtudiant, String.valueOf(annonceId)}
+                "LOWER(TRIM(emailEtudiant))=? AND annonce_id=?",
+                new String[]{
+                        email,
+                        String.valueOf(annonceId)
+                }
         ) > 0;
     }
 
     public Cursor getFavoris(String emailEtudiant) {
+
+        String email = normaliserEmail(emailEtudiant);
+
+        if (email.isEmpty()) {
+            return null;
+        }
+
         return getReadableDatabase().rawQuery(
                 "SELECT Annonce.* FROM Annonce " +
-                        "INNER JOIN Favoris ON Annonce.id=Favoris.annonce_id " +
-                        "WHERE Favoris.emailEtudiant=?",
-                new String[]{emailEtudiant}
+                        "INNER JOIN Favoris " +
+                        "ON Annonce.id=Favoris.annonce_id " +
+                        "WHERE LOWER(TRIM(Favoris.emailEtudiant))=? " +
+                        "ORDER BY Favoris.id DESC",
+                new String[]{email}
         );
     }
+
 
     // =====================================
     // FAVORIS COLOCATAIRES
@@ -989,6 +1066,155 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "LOWER(TRIM(emailEtudiant))=? AND lu=0",
                 new String[]{normaliserEmail(email)}
         ) > 0;
+    }
+
+    // =====================================
+    // NOTIFICATIONS DES MESSAGES
+    // =====================================
+
+    // Appelée après l'envoi d'un message.
+    // Seul l'étudiant a la cloche : s'il reçoit un message, il a une notification.
+    public void notifierNouveauMessage(
+            long conversationId,
+            String emailExpediteur,
+            String contenu) {
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT emailEtudiant, nomProprietaire " +
+                        "FROM Conversation WHERE id=?",
+                new String[]{String.valueOf(conversationId)}
+        );
+
+        String emailEtudiant;
+        String nomProprietaire;
+
+        try {
+            if (!cursor.moveToFirst()) {
+                return;
+            }
+
+            emailEtudiant = cursor.getString(0);
+            nomProprietaire = cursor.getString(1);
+
+        } finally {
+            cursor.close();
+        }
+
+        // Si c'est l'étudiant qui écrit, pas de notification pour lui
+        if (normaliserEmail(emailExpediteur)
+                .equals(normaliserEmail(emailEtudiant))) {
+            return;
+        }
+
+        String nom = (nomProprietaire == null
+                || nomProprietaire.trim().isEmpty())
+                ? "Le propriétaire"
+                : nomProprietaire.trim();
+
+        String texte = contenu == null ? "" : contenu.trim();
+
+        if (texte.length() > 80) {
+            texte = texte.substring(0, 80) + "…";
+        }
+
+        ContentValues values = new ContentValues();
+
+        values.put("titre", "Nouveau message 💬");
+        values.put("message", nom + " : " + texte);
+        values.put("dateCreation", System.currentTimeMillis());
+
+        // Une seule notification non lue par conversation (mise à jour)
+        int modifie = getWritableDatabase().update(
+                "Notification",
+                values,
+                "LOWER(TRIM(emailEtudiant))=? AND type='message' " +
+                        "AND conversationId=? AND lu=0",
+                new String[]{
+                        normaliserEmail(emailEtudiant),
+                        String.valueOf(conversationId)
+                }
+        );
+
+        if (modifie == 0) {
+
+            values.put("emailEtudiant", normaliserEmail(emailEtudiant));
+            values.put("lu", 0);
+            values.put("type", "message");
+            values.put("conversationId", conversationId);
+
+            getWritableDatabase().insert("Notification", null, values);
+        }
+    }
+
+    // Quand l'étudiant ouvre la conversation, sa notification devient lue
+    public void marquerNotificationsConversationLues(
+            String emailEtudiant,
+            long conversationId) {
+
+        ContentValues values = new ContentValues();
+        values.put("lu", 1);
+
+        getWritableDatabase().update(
+                "Notification",
+                values,
+                "LOWER(TRIM(emailEtudiant))=? AND type='message' " +
+                        "AND conversationId=? AND lu=0",
+                new String[]{
+                        normaliserEmail(emailEtudiant),
+                        String.valueOf(conversationId)
+                }
+        );
+    }
+
+    // Nombre de messages non lus (reçus) dans une conversation
+    public int compterMessagesNonLus(
+            long conversationId,
+            String emailUtilisateur) {
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM Message " +
+                        "WHERE conversation_id=? AND lu=0 " +
+                        "AND LOWER(TRIM(emailExpediteur)) != ?",
+                new String[]{
+                        String.valueOf(conversationId),
+                        normaliserEmail(emailUtilisateur)
+                }
+        );
+
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    // Total des messages non lus de l'utilisateur (pour le badge de la barre de navigation)
+    public int compterTotalMessagesNonLus(String emailUtilisateur) {
+
+        String email = normaliserEmail(emailUtilisateur);
+
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM Message m " +
+                        "INNER JOIN Conversation c ON c.id = m.conversation_id " +
+                        "WHERE m.lu=0 " +
+                        "AND LOWER(TRIM(m.emailExpediteur)) != ? " +
+                        "AND (LOWER(TRIM(c.emailEtudiant))=? " +
+                        "OR LOWER(TRIM(c.emailProprietaire))=?)",
+                new String[]{email, email, email}
+        );
+
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public Cursor getConversation(long conversationId) {
+        return getReadableDatabase().rawQuery(
+                "SELECT * FROM Conversation WHERE id=?",
+                new String[]{String.valueOf(conversationId)}
+        );
     }
 
     // =====================================

@@ -2,20 +2,18 @@
 package com.example.diar;
 
 import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.database.Cursor;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -23,86 +21,78 @@ import java.util.Locale;
 
 public class Interface15 extends AppCompatActivity {
 
+    private static final String TAG = "DIAR_RESERVATION";
+
     private DatabaseHelper databaseHelper;
     private SessionManager sessionManager;
 
     private ImageButton btnBack;
     private MaterialButton btnSubmit;
 
-    private MaterialCardView[] dateCards;
-    private MaterialCardView[] heureCards;
+    private TextView tvDateSelectionnee;
+    private TextView tvHeureSelectionnee;
 
     private String dateSelectionnee = "";
-    private String heureSelectionnee = "14:00";
+    private String heureSelectionnee = "";
 
     private long annonceId = -1;
     private String emailProprietaire = "";
-
-    private final int vert = Color.rgb(0, 168, 107);
-    private final int gris = Color.rgb(226, 232, 240);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.interface15);
 
+        // Initialisation
         databaseHelper = new DatabaseHelper(this);
         sessionManager = new SessionManager(this);
 
+        // Récupération des vues
         btnBack = findViewById(R.id.btnBack);
         btnSubmit = findViewById(R.id.btnSubmit);
 
-        Intent intent = getIntent();
+        tvDateSelectionnee =
+                findViewById(R.id.tvDateSelectionnee);
 
-        annonceId = intent.getLongExtra("annonceId", -1);
+        tvHeureSelectionnee =
+                findViewById(R.id.tvHeureSelectionnee);
 
-        // Récupérer l'email du propriétaire depuis l'annonce SQLite
-        emailProprietaire = recupererEmailProprietaire(annonceId);
+        // Récupération ID annonce
+        annonceId = getIntent().getLongExtra("annonceId", -1);
 
-        dateCards = new MaterialCardView[]{
-                findViewById(R.id.cardDate1),
-                findViewById(R.id.cardDate2),
-                findViewById(R.id.cardDate3),
-                findViewById(R.id.cardDate4)
-        };
+        Log.d(TAG, "Annonce ID = " + annonceId);
 
-        heureCards = new MaterialCardView[]{
-                findViewById(R.id.cardHeure1),
-                findViewById(R.id.cardHeure2),
-                findViewById(R.id.cardHeure3)
-        };
+        // Récupération email propriétaire
+        emailProprietaire =
+                recupererEmailProprietaire(annonceId);
 
+        Log.d(TAG, "Email propriétaire = " + emailProprietaire);
+
+        // Bouton retour
         btnBack.setOnClickListener(v -> finish());
 
-        for (int i = 0; i < dateCards.length; i++) {
-            final int index = i;
+        // Choisir date
+        tvDateSelectionnee.setOnClickListener(v ->
+                ouvrirCalendrier()
+        );
 
-            dateCards[i].setOnClickListener(v ->
-                    ouvrirCalendrier(index)
-            );
-        }
+        // Choisir heure
+        tvHeureSelectionnee.setOnClickListener(v ->
+                ouvrirHorloge()
+        );
 
-        String[] heures = {"10:00", "14:00", "16:00"};
+        // Envoyer demande
+        btnSubmit.setOnClickListener(v ->
+                envoyerDemande()
+        );
 
-        for (int i = 0; i < heureCards.length; i++) {
-            final int index = i;
-
-            heureCards[i].setOnClickListener(v -> {
-                heureSelectionnee = heures[index];
-                selectionnerHeure(index);
-            });
-        }
-
-        selectionnerHeure(1);
-
-        btnSubmit.setOnClickListener(v -> envoyerDemande());
-
+        // Navigation
         NavigationEtudiant.setup(this, 2);
     }
 
-    // =====================================
-    // RECUPERER EMAIL PROPRIETAIRE
-    // =====================================
+    // =========================================
+    // 1. RECUPERER EMAIL PROPRIETAIRE
+    // =========================================
 
     private String recupererEmailProprietaire(long id) {
 
@@ -110,48 +100,72 @@ public class Interface15 extends AppCompatActivity {
             return "";
         }
 
-        Cursor cursor = databaseHelper.getAnnonce(id);
-
-        if (cursor == null) {
-            return "";
-        }
-
-        String email = "";
+        Cursor cursor = null;
 
         try {
-            if (cursor.moveToFirst()) {
 
-                int index = cursor.getColumnIndex("emailProprietaire");
+            cursor = databaseHelper.getAnnonce(id);
+
+            if (cursor != null && cursor.moveToFirst()) {
+
+                int index = cursor.getColumnIndex(
+                        "emailProprietaire"
+                );
+
+                // Compatibilité avec une ancienne colonne
+                if (index == -1) {
+                    index = cursor.getColumnIndex("email");
+                }
 
                 if (index != -1) {
-                    email = cursor.getString(index);
+
+                    String email = cursor.getString(index);
+
+                    if (email != null) {
+                        return email.trim().toLowerCase(Locale.ROOT);
+                    }
                 }
             }
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Erreur email propriétaire", e);
+
         } finally {
-            cursor.close();
+
+            if (cursor != null) {
+                cursor.close();
+            }
         }
 
-        if (email == null) {
-            return "";
-        }
-
-        return email.trim().toLowerCase();
+        return "";
     }
 
-    // =====================================
-    // CALENDRIER
-    // =====================================
+    // =========================================
+    // 2. OUVRIR CALENDRIER
+    // =========================================
 
-    private void ouvrirCalendrier(int index) {
+    private void ouvrirCalendrier() {
 
         Calendar aujourdHui = Calendar.getInstance();
 
         DatePickerDialog dialog = new DatePickerDialog(
                 this,
+
                 (view, year, month, day) -> {
 
                     Calendar choix = Calendar.getInstance();
-                    choix.set(year, month, day);
+
+                    choix.clear();
+
+                    choix.set(
+                            year,
+                            month,
+                            day,
+                            0,
+                            0,
+                            0
+                    );
 
                     SimpleDateFormat format =
                             new SimpleDateFormat(
@@ -159,120 +173,184 @@ public class Interface15 extends AppCompatActivity {
                                     Locale.getDefault()
                             );
 
-                    dateSelectionnee = format.format(choix.getTime());
+                    dateSelectionnee =
+                            format.format(choix.getTime());
 
-                    selectionnerDate(index, choix);
+                    // Affichage date utilisateur
+                    SimpleDateFormat affichage =
+                            new SimpleDateFormat(
+                                    "dd/MM/yyyy",
+                                    Locale.getDefault()
+                            );
 
+                    tvDateSelectionnee.setText(
+                            "📅 " + affichage.format(choix.getTime())
+                    );
+
+                    // Obliger à choisir une nouvelle heure
+                    heureSelectionnee = "";
+
+                    tvHeureSelectionnee.setText(
+                            "🕒 Choisir une heure"
+                    );
+
+                    Log.d(TAG,
+                            "Date choisie = " + dateSelectionnee
+                    );
                 },
+
                 aujourdHui.get(Calendar.YEAR),
                 aujourdHui.get(Calendar.MONTH),
                 aujourdHui.get(Calendar.DAY_OF_MONTH)
         );
 
+        // Interdire les dates passées
         dialog.getDatePicker().setMinDate(
-                System.currentTimeMillis() - 1000
+                System.currentTimeMillis()
         );
 
         dialog.show();
     }
 
-    // =====================================
-    // SELECTION DATE
-    // =====================================
+    // =========================================
+    // 3. OUVRIR HORLOGE
+    // =========================================
 
-    private void selectionnerDate(int index, Calendar choix) {
+    private void ouvrirHorloge() {
 
-        for (MaterialCardView card : dateCards) {
-            card.setStrokeColor(gris);
-            card.setStrokeWidth(1);
-            card.setCardBackgroundColor(Color.WHITE);
+        if (dateSelectionnee.isEmpty()) {
+
+            Toast.makeText(
+                    this,
+                    "Veuillez choisir une date d'abord.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
         }
 
-        dateCards[index].setStrokeColor(vert);
-        dateCards[index].setStrokeWidth(3);
-        dateCards[index].setCardBackgroundColor(
-                Color.rgb(240, 253, 244)
-        );
+        Calendar maintenant = Calendar.getInstance();
 
-        if (dateCards[index].getChildAt(0) instanceof LinearLayout) {
+        Calendar dateChoisie = Calendar.getInstance();
 
-            LinearLayout contenu =
-                    (LinearLayout) dateCards[index].getChildAt(0);
+        try {
 
-            if (contenu.getChildCount() >= 2 &&
-                    contenu.getChildAt(0) instanceof TextView &&
-                    contenu.getChildAt(1) instanceof TextView) {
+            SimpleDateFormat format =
+                    new SimpleDateFormat(
+                            "yyyy-MM-dd",
+                            Locale.getDefault()
+                    );
 
-                TextView jour =
-                        (TextView) contenu.getChildAt(0);
+            format.setLenient(false);
 
-                TextView numero =
-                        (TextView) contenu.getChildAt(1);
-
-                SimpleDateFormat jourFormat =
-                        new SimpleDateFormat("EEE", Locale.FRENCH);
-
-                SimpleDateFormat dateFormat =
-                        new SimpleDateFormat("dd/MM", Locale.getDefault());
-
-                jour.setText(jourFormat.format(choix.getTime()));
-                numero.setText(dateFormat.format(choix.getTime()));
-            }
-        }
-    }
-
-    // =====================================
-    // SELECTION HEURE
-    // =====================================
-
-    private void selectionnerHeure(int index) {
-
-        for (MaterialCardView card : heureCards) {
-
-            card.setStrokeColor(gris);
-            card.setStrokeWidth(1);
-            card.setCardBackgroundColor(Color.WHITE);
-
-            if (card.getChildAt(0) instanceof TextView) {
-
-                TextView tv = (TextView) card.getChildAt(0);
-
-                tv.setTextColor(Color.rgb(30, 41, 59));
-                tv.setTypeface(null, android.graphics.Typeface.NORMAL);
-            }
-        }
-
-        heureCards[index].setStrokeColor(vert);
-        heureCards[index].setStrokeWidth(3);
-        heureCards[index].setCardBackgroundColor(
-                Color.rgb(240, 253, 244)
-        );
-
-        if (heureCards[index].getChildAt(0) instanceof TextView) {
-
-            TextView selected =
-                    (TextView) heureCards[index].getChildAt(0);
-
-            selected.setTextColor(vert);
-            selected.setTypeface(
-                    null,
-                    android.graphics.Typeface.BOLD
+            dateChoisie.setTime(
+                    format.parse(dateSelectionnee)
             );
+
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Date invalide.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
         }
+
+        // Vérifier si la date choisie est aujourd'hui
+        boolean memeJour =
+                maintenant.get(Calendar.YEAR)
+                        == dateChoisie.get(Calendar.YEAR)
+                        &&
+                        maintenant.get(Calendar.DAY_OF_YEAR)
+                                == dateChoisie.get(Calendar.DAY_OF_YEAR);
+
+        int heureInitiale;
+
+        int minuteInitiale;
+
+        if (memeJour) {
+
+            heureInitiale =
+                    maintenant.get(Calendar.HOUR_OF_DAY);
+
+            minuteInitiale =
+                    maintenant.get(Calendar.MINUTE);
+
+        } else {
+
+            heureInitiale = 10;
+            minuteInitiale = 0;
+        }
+
+        TimePickerDialog dialog = new TimePickerDialog(
+                this,
+
+                (view, hourOfDay, minute) -> {
+
+                    Calendar choix =
+                            (Calendar) dateChoisie.clone();
+
+                    choix.set(
+                            Calendar.HOUR_OF_DAY,
+                            hourOfDay
+                    );
+
+                    choix.set(
+                            Calendar.MINUTE,
+                            minute
+                    );
+
+                    choix.set(Calendar.SECOND, 0);
+
+                    choix.set(Calendar.MILLISECOND, 0);
+
+                    // Interdire les heures passées
+                    if (choix.getTimeInMillis()
+                            <= System.currentTimeMillis()) {
+
+                        Toast.makeText(
+                                this,
+                                "Cette heure est déjà passée. Choisissez une autre heure.",
+                                Toast.LENGTH_LONG
+                        ).show();
+
+                        return;
+                    }
+
+                    heureSelectionnee = String.format(
+                            Locale.getDefault(),
+                            "%02d:%02d",
+                            hourOfDay,
+                            minute
+                    );
+
+                    tvHeureSelectionnee.setText(
+                            "🕒 " + heureSelectionnee
+                    );
+
+                    Log.d(TAG,
+                            "Heure choisie = " + heureSelectionnee
+                    );
+                },
+
+                heureInitiale,
+                minuteInitiale,
+                true
+        );
+
+        dialog.show();
     }
 
-    // =====================================
-    // ENVOYER DEMANDE
-    // =====================================
+    // =========================================
+    // 4. ENVOYER DEMANDE
+    // =========================================
 
     private void envoyerDemande() {
 
-        String emailEtudiant =
-                sessionManager.getEmail().trim().toLowerCase();
-
         // Vérifier connexion
-        if (!sessionManager.isLoggedIn() ||
-                emailEtudiant.isEmpty()) {
+        if (!sessionManager.isLoggedIn()) {
 
             Toast.makeText(
                     this,
@@ -283,10 +361,29 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
+        // Email étudiant
+        String emailEtudiant = sessionManager.getEmail();
+
+        if (emailEtudiant == null ||
+                emailEtudiant.trim().isEmpty()) {
+
+            Toast.makeText(
+                    this,
+                    "Email étudiant introuvable.",
+                    Toast.LENGTH_LONG
+            ).show();
+
+            return;
+        }
+
+        emailEtudiant =
+                emailEtudiant.trim().toLowerCase(Locale.ROOT);
+
         // Vérifier type de compte
         String typeCompte = sessionManager.getTypeCompte();
 
-        if (!typeCompte.isEmpty() &&
+        if (typeCompte != null &&
+                !typeCompte.trim().isEmpty() &&
                 !typeCompte.equalsIgnoreCase("ETUDIANT")) {
 
             Toast.makeText(
@@ -298,18 +395,19 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
-        Log.d("DIAR_ID", "annonceId = " + annonceId);
-
+        // Vérifier ID annonce
         if (annonceId <= 0) {
+
             Toast.makeText(
                     this,
-                    "Annonce introuvable. ID = " + annonceId,
+                    "Annonce introuvable. ID invalide.",
                     Toast.LENGTH_LONG
             ).show();
 
             return;
         }
 
+        // Vérifier propriétaire
         if (emailProprietaire == null ||
                 emailProprietaire.isEmpty()) {
 
@@ -322,7 +420,8 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
-        if (emailEtudiant.equals(emailProprietaire)) {
+        // Empêcher réservation de sa propre annonce
+        if (emailEtudiant.equalsIgnoreCase(emailProprietaire)) {
 
             Toast.makeText(
                     this,
@@ -333,6 +432,7 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
+        // Vérifier date
         if (dateSelectionnee.isEmpty()) {
 
             Toast.makeText(
@@ -344,6 +444,7 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
+        // Vérifier heure
         if (heureSelectionnee.isEmpty()) {
 
             Toast.makeText(
@@ -355,49 +456,102 @@ public class Interface15 extends AppCompatActivity {
             return;
         }
 
+        // Vérification finale date + heure
         String dateReservation =
                 dateSelectionnee + " " + heureSelectionnee;
 
-        // Enregistrer dans SQLite
-        long resultat = databaseHelper.ajouterReservation(
-                annonceId,
-                emailEtudiant,
-                emailProprietaire,
-                dateReservation
-        );
+        try {
 
-        Log.d(
-                "DIAR_RESERVATION",
-                "ID=" + resultat +
-                        " | Etudiant=" + emailEtudiant +
-                        " | Proprietaire=" + emailProprietaire +
-                        " | Annonce=" + annonceId +
-                        " | Date=" + dateReservation
-        );
+            SimpleDateFormat format =
+                    new SimpleDateFormat(
+                            "yyyy-MM-dd HH:mm",
+                            Locale.getDefault()
+                    );
 
-        if (resultat != -1) {
+            format.setLenient(false);
+
+            Calendar reservation = Calendar.getInstance();
+
+            reservation.setTime(
+                    format.parse(dateReservation)
+            );
+
+            if (reservation.getTimeInMillis()
+                    <= System.currentTimeMillis()) {
+
+                Toast.makeText(
+                        this,
+                        "La date et l'heure doivent être dans le futur.",
+                        Toast.LENGTH_LONG
+                ).show();
+
+                return;
+            }
+
+        } catch (Exception e) {
 
             Toast.makeText(
                     this,
-                    "Votre demande a été envoyée avec succès !",
-                    Toast.LENGTH_LONG
+                    "Date ou heure invalide.",
+                    Toast.LENGTH_SHORT
             ).show();
 
-            finish();
+            return;
+        }
 
-        } else {
+        // Enregistrer dans SQLite
+        try {
+
+            long resultat = databaseHelper.ajouterReservation(
+                    annonceId,
+                    emailEtudiant,
+                    emailProprietaire,
+                    dateReservation
+            );
+
+            Log.d(
+                    TAG,
+                    "Résultat = " + resultat
+                            + " | Annonce = " + annonceId
+                            + " | Etudiant = " + emailEtudiant
+                            + " | Proprietaire = " + emailProprietaire
+                            + " | Date = " + dateReservation
+            );
+
+            if (resultat != -1) {
+
+                Toast.makeText(
+                        this,
+                        "Votre demande a été envoyée avec succès !",
+                        Toast.LENGTH_LONG
+                ).show();
+
+                finish();
+
+            } else {
+
+                Toast.makeText(
+                        this,
+                        "Erreur lors de l'enregistrement SQLite.",
+                        Toast.LENGTH_LONG
+                ).show();
+            }
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Erreur réservation", e);
 
             Toast.makeText(
                     this,
-                    "Erreur lors de l'envoi. Vérifiez l'annonce et son propriétaire.",
+                    "Erreur : " + e.getMessage(),
                     Toast.LENGTH_LONG
             ).show();
         }
     }
 
-    // =====================================
-    // FERMETURE
-    // =====================================
+    // =========================================
+    // 5. FERMETURE
+    // =========================================
 
     @Override
     protected void onDestroy() {

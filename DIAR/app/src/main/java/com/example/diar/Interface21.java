@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.content.Intent;
@@ -90,6 +89,7 @@ public class Interface21 extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        // Au retour d'un chat, les messages lus / nouveaux sont mis à jour
         if (databaseHelper != null
                 && layoutConversations != null
                 && emailActuel != null
@@ -97,6 +97,11 @@ public class Interface21 extends AppCompatActivity {
 
             chargerConversationsSQLite();
         }
+    }
+
+    private int dp(float valeur) {
+        return (int) (valeur * getResources()
+                .getDisplayMetrics().density);
     }
 
     // CHARGER LES CONVERSATIONS DEPUIS SQLITE
@@ -212,6 +217,12 @@ public class Interface21 extends AppCompatActivity {
             String nom,
             String emailContact) {
 
+        // Nombre de messages non lus dans cette conversation
+        int nonLus = databaseHelper.compterMessagesNonLus(
+                conversationId,
+                emailActuel
+        );
+
         LinearLayout carte = new LinearLayout(this);
 
         carte.setOrientation(LinearLayout.HORIZONTAL);
@@ -227,7 +238,13 @@ public class Interface21 extends AppCompatActivity {
         params.setMargins(10, 8, 10, 8);
         carte.setLayoutParams(params);
 
-        carte.setBackgroundResource(R.drawable.bg_input_message);
+        if (nonLus > 0) {
+            // Carte colorée en rouge clair (messages non lus)
+            UnreadBadge.colorerCarte(carte, nonLus, 20);
+        } else {
+            carte.setBackgroundResource(R.drawable.bg_input_message);
+        }
+
         carte.setElevation(3f);
         carte.setClickable(true);
         carte.setFocusable(true);
@@ -292,6 +309,22 @@ public class Interface21 extends AppCompatActivity {
 
         carte.addView(initiale);
         carte.addView(informations);
+
+        // Cercle rouge avec le nombre de messages non lus
+        if (nonLus > 0) {
+
+            TextView badge = UnreadBadge.creer(this, nonLus);
+
+            LinearLayout.LayoutParams badgeParams =
+                    new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                    );
+
+            badgeParams.setMargins(dp(8), 0, 0, 0);
+
+            carte.addView(badge, badgeParams);
+        }
 
         carte.setOnClickListener(v ->
                 ouvrirConversation(
@@ -470,6 +503,15 @@ public class Interface21 extends AppCompatActivity {
             filtrerConversations(
                     edtRecherche.getText().toString()
             );
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (databaseHelper != null) {
+            databaseHelper.close();
         }
     }
 }

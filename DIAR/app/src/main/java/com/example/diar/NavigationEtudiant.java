@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.app.Activity;
@@ -86,6 +85,9 @@ public class NavigationEtudiant {
                 });
             }
         }
+
+        // Badge rouge : messages non lus sur l'icône Chat
+        NavBadge.lier(activity, R.id.badge_chat);
     }
 
     private static void ouvrir(

@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.content.ContentValues;
@@ -376,6 +375,13 @@ public abstract class ChatBaseActivity extends AppCompatActivity {
 
             edtMessage.setText("");
 
+            // Notification pour l'étudiant (cloche de l'accueil)
+            databaseHelper.notifierNouveauMessage(
+                    conversationId,
+                    currentUserEmail,
+                    contenu
+            );
+
             chargerMessages();
 
             Toast.makeText(
@@ -465,6 +471,14 @@ public abstract class ChatBaseActivity extends AppCompatActivity {
                         currentUserEmail
                 }
         );
+
+        // La notification de cette conversation devient lue
+        if ("ETUDIANT".equalsIgnoreCase(currentUserRole)) {
+            databaseHelper.marquerNotificationsConversationLues(
+                    currentUserEmail,
+                    conversationId
+            );
+        }
 
         scrollMessages.post(() ->
                 scrollMessages.fullScroll(

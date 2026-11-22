@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.app.Activity;
@@ -97,6 +96,9 @@ public class NavigationProprietaire {
                 );
             }
         }
+
+        // Badge rouge : messages non lus sur l'icône Messages
+        NavBadge.lier(activity, R.id.badge_nav_prop_messages);
     }
 
     private static void ouvrir(
