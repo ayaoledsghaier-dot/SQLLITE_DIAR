@@ -43,13 +43,21 @@ public class AccueilProprietaire extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.interface18);
 
+
         NavigationProprietaire.setup(this, R.id.nav_prop_accueil);
+//NavigationProprietaire : classe personnalisée qui contient le code de gestion de la navigation du propriétaire.
+        //setup() : méthode qui initialise la barre de navigation et configure les actions des boutons.
+        //this : représente l'activité actuelle, ici AccueilProprietaire.
+        //R.id.nav_prop_accueil : identifiant du bouton correspondant à l'accueil du propriétaire dans le fichier XML.
 
         databaseHelper = new DatabaseHelper(this);
-
+//Cette instruction permet de créer un objet de la
+// classe DatabaseHelper afin de gérer la base de données SQLite de l'application DIAR.  nst3mlha ba3ed fi - getReadableDatabase() : ouvrir la base de données en lecture.
+//- getWritableDatabase() : ouvrir la base de données en lecture et écriture.
         imgOwnerProfile = findViewById(R.id.imgOwnerProfile);
         tvOwnerGreeting = findViewById(R.id.tvOwnerGreeting);
-
+//La méthode findViewById() permet de récupérer les composants
+// graphiques déclarés dans le fichier XML et de les utiliser dans le code Java.
         tvListingsCount = findViewById(R.id.tvListingsCount);
         tvViewsCount = findViewById(R.id.tvViewsCount);
         tvRequestsCount = findViewById(R.id.tvRequestsCount);
@@ -119,6 +127,8 @@ public class AccueilProprietaire extends AppCompatActivity {
 
             nomProprietaire = cursor.getString(
                     cursor.getColumnIndexOrThrow("nom")
+                    //Cette instruction permet de récupérer le nom du propriétaire
+                    // depuis la base de données et de le stocker dans une variable.
             );
 
             String photoPath = cursor.getString(

@@ -38,7 +38,7 @@ public class NotificationsActivity extends AppCompatActivity {
         construireInterface();
         chargerNotifications();
     }
-
+//********************************************************************************
     private int dp(int value) {
         return (int) (value * getResources()
                 .getDisplayMetrics().density);

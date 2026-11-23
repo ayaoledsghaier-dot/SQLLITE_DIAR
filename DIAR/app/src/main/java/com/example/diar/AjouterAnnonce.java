@@ -48,6 +48,8 @@ public class AjouterAnnonce extends AppCompatActivity {
     private double surface = 0;
 
     private final ActivityResultLauncher<String> photosLauncher =
+            //photosLauncher : تسمح للمستخدم باختيار عدة صور من الهاتف.
+            //e composant permet d'ouvrir le sélecteur de fichiers du téléphone et de récupérer les photos sélectionnées par l'utilisateur.
             registerForActivityResult(
                     new ActivityResultContracts.GetMultipleContents(),
                     uris -> {
@@ -72,6 +74,7 @@ public class AjouterAnnonce extends AppCompatActivity {
             );
 
     private final ActivityResultLauncher<Intent> carteLauncher =
+            //carteLauncher : تسمح باستقبال الموقع الجغرافي ومعلومات السكن من واجهة الخريطة بعد ما المستخدم يختار
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {

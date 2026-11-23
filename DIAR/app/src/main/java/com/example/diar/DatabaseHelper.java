@@ -10,9 +10,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "diar.db";
     private static final int DATABASE_VERSION = 10;
-
+// constructeur l'acces  au application android necess pour ouvrire el base de données
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        //super bech tml apple constructeur databasehelper
     }
 
     @Override
@@ -23,9 +24,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        createCoreTables(db);
-        createAnnoncePhotoTable(db);
-        createAuxiliaryTables(db);
+            createCoreTables(db);
+            createAnnoncePhotoTable(db);
+            createAuxiliaryTables(db);
     }
 
     // =====================================
@@ -226,11 +227,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void addColumnIfNotExists(
-            SQLiteDatabase db,
-            String table,
-            String column,
-            String type) {
+    private void addColumnIfNotExists(SQLiteDatabase db, String table, String column, String type) {
 
         Cursor cursor = db.rawQuery(
                 "PRAGMA table_info(" + table + ")",
