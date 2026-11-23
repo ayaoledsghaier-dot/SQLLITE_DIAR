@@ -1,268 +1,155 @@
-
 package com.example.diar;
 
+import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class Interface12 extends AppCompatActivity {
 
-    private RecyclerView recyclerViewProfils;
-    private ProfilAdapter profilAdapter;
-    private List<Etudiant> profilList;
-    private ImageButton btnBack;
-    private DatabaseHelper databaseHelper;
-
+    private RecyclerView recyclerView;
+    private ProfilAdapter adapter;
+    private List<Etudiant> list = new ArrayList<>();
+    private DatabaseHelper db;
     private String emailConnecte = "";
+    private Etudiant moi;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.interface12);
 
-        recyclerViewProfils = findViewById(R.id.recyclerViewProfils);
-        btnBack = findViewById(R.id.btnBack);
+        NavigationEtudiant.setup(this, -1);
 
-        // Récupérer l'email de l'utilisateur connecté
+        db = new DatabaseHelper(this);
         emailConnecte = getIntent().getStringExtra("USER_EMAIL");
-
-        if (emailConnecte == null || emailConnecte.trim().isEmpty()) {
-            SessionManager session = new SessionManager(this);
-            emailConnecte = session.getEmail();
+        if (emailConnecte == null || emailConnecte.isEmpty()) {
+            emailConnecte = getIntent().getStringExtra("emailEtudiant");
         }
-
-        if (emailConnecte == null) {
-            emailConnecte = "";
+        if (emailConnecte == null || emailConnecte.isEmpty()) {
+            emailConnecte = new SessionManager(this).getEmail();
         }
+        if (emailConnecte == null) emailConnecte = "";
+        emailConnecte = emailConnecte.trim().toLowerCase();
 
-        recyclerViewProfils.setLayoutManager(
-                new LinearLayoutManager(this)
-        );
+        recyclerView = findViewById(R.id.recyclerViewProfils);
+        ImageButton btnBack = findViewById(R.id.btnBack);
+        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
 
-        profilList = new ArrayList<>();
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new ProfilAdapter(list, emailConnecte, e -> ouvrirProfil(e));
+        recyclerView.setAdapter(adapter);
 
-        profilAdapter = new ProfilAdapter(
-                profilList,
-                emailConnecte,
-                etudiant -> {
-                    // Action عند الضغط على profil
-                    Toast.makeText(
-                            Interface12.this,
-                            "Profil sélectionné",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                }
-        );
-
-        recyclerViewProfils.setAdapter(profilAdapter);
-
-        if (btnBack != null) {
-            btnBack.setOnClickListener(v -> finish());
-        }
-
-        databaseHelper = new DatabaseHelper(this);
-
-        chargerProfilsCompatibles();
+        moi = chargerMoi();
+        adapter.setEtudiantConnecte(moi);
+        chargerTous();
     }
 
-    private void chargerProfilsCompatibles() {
+    private void ouvrirProfil(Etudiant etudiant) {
+        Intent intent = new Intent(Interface12.this, Interface13.class);
+        intent.putExtra("USER_EMAIL", emailConnecte);
+        intent.putExtra("emailEtudiant", emailConnecte);
+        intent.putExtra("COLOC_ID", etudiant.getId());
 
-        profilList.clear();
+        intent.putExtra("NOM", etudiant.getNomComplet());
+        intent.putExtra("POURCENTAGE", etudiant.getPourcentageCompatible());
 
-        Cursor cursor = null;
+        intent.putExtra("FAC", etudiant.getUniversite());
+        intent.putExtra("UNIVERSITE", etudiant.getUniversite());
 
+        intent.putExtra("AGE", etudiant.getAge());
+        intent.putExtra("BUDGET", etudiant.getBudgetMax());
+
+        intent.putExtra("VILLE", etudiant.getQuartier());
+        intent.putExtra("QUARTIER", etudiant.getQuartier());
+
+        intent.putExtra("MODE", etudiant.getModeDeVie());
+        intent.putExtra("MODE_DE_VIE", etudiant.getModeDeVie());
+
+        intent.putExtra("COLOCS", etudiant.getNbColocataires());
+        intent.putExtra("ANIMAUX", etudiant.getAnimauxAcceptes());
+        intent.putExtra("PROPRETE", etudiant.getProprete());
+
+        intent.putExtra("PHOTO", etudiant.getPhotoUrl());
+        intent.putExtra("PHOTO_URL", etudiant.getPhotoUrl());
+
+        startActivity(intent);
+    }
+
+    private Etudiant chargerMoi() {
+        Etudiant m = new Etudiant();
+        Cursor c = null;
         try {
-            cursor = databaseHelper.getReadableDatabase().query(
-                    "Etudiant",
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    "id DESC"
-            );
-
-            while (cursor.moveToNext()) {
-
-                String email = getString(cursor, "email");
-
-                // Ne pas afficher le profil connecté
-                if (email.equalsIgnoreCase(emailConnecte)) {
-                    continue;
-                }
-
-                String nom = getString(cursor, "nomComplet");
-                String universite = getString(cursor, "universite");
-                String quartier = getString(cursor, "quartier");
-                String modeDeVie = getString(cursor, "modeDeVie");
-                String nbColocataires = getString(cursor, "nbColocataires");
-                String proprete = getString(cursor, "proprete");
-                String animaux = getString(cursor, "animauxAcceptes");
-                String photoPath = getString(cursor, "photoUrl");
-
-                int age = getInt(cursor, "age", 21);
-                double budget = getDouble(cursor, "budgetMax", 0);
-
-                int pourcentage = calculerCompatibilite(
-                        quartier,
-                        budget,
-                        modeDeVie,
-                        emailConnecte
-                );
-
-                Etudiant etudiant = new Etudiant(
-                        nom,
-                        email,
-                        universite,
-                        age,
-                        budget,
-                        modeDeVie,
-                        nbColocataires,
-                        proprete,
-                        animaux
-                );
-
-                etudiant.setPourcentage(pourcentage);
-                etudiant.setQuartier(quartier);
-                etudiant.setPhotoUrl(photoPath);
-
-                profilList.add(etudiant);
+            c = db.getReadableDatabase().query("Etudiant", null, "email=?", new String[]{emailConnecte}, null, null, null);
+            if (c.moveToFirst()) {
+                m.setQuartier(getString(c, "quartier"));
+                m.setBudgetMax(getDouble(c, "budgetMax", 0));
+                m.setModeDeVie(getString(c, "modeDeVie"));
+                m.setAge(getInt(c, "age", 21));
+                m.setFaculte(getString(c, "faculte"));
             }
-
-            profilAdapter.notifyDataSetChanged();
-
-            if (profilList.isEmpty()) {
-                Toast.makeText(
-                        this,
-                        "Aucun profil étudiant disponible",
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-
-        } catch (Exception e) {
-
-            Toast.makeText(
-                    this,
-                    "Erreur SQLite : " + e.getMessage(),
-                    Toast.LENGTH_LONG
-            ).show();
-
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
+        } catch (Exception e) { e.printStackTrace(); }
+        finally { if (c != null) c.close(); }
+        return m;
     }
 
-    private int calculerCompatibilite(
-            String quartier,
-            double budget,
-            String modeDeVie,
-            String emailConnecte) {
-
-        int score = 50;
-        Cursor cursor = null;
-
+    private void chargerTous() {
+        list.clear();
+        Cursor c = null;
         try {
-            cursor = databaseHelper.getReadableDatabase().query(
-                    "Etudiant",
-                    new String[]{"quartier", "budgetMax", "modeDeVie"},
-                    "email = ?",
-                    new String[]{emailConnecte},
-                    null,
-                    null,
-                    null
-            );
-
-            if (cursor.moveToFirst()) {
-
-                String monQuartier = getString(cursor, "quartier");
-                double monBudget = getDouble(cursor, "budgetMax", 0);
-                String monModeDeVie = getString(cursor, "modeDeVie");
-
-                if (!quartier.isEmpty() &&
-                        quartier.equalsIgnoreCase(monQuartier)) {
-                    score += 20;
-                }
-
-                if (budget > 0 && monBudget > 0) {
-
-                    double difference = Math.abs(budget - monBudget);
-                    double maxBudget = Math.max(budget, monBudget);
-
-                    if (difference <= maxBudget * 0.10) {
-                        score += 20;
-                    } else if (difference <= maxBudget * 0.25) {
-                        score += 10;
-                    }
-                }
-
-                if (!modeDeVie.isEmpty() &&
-                        modeDeVie.equalsIgnoreCase(monModeDeVie)) {
-                    score += 10;
-                }
+            c = db.getReadableDatabase().query("Etudiant", null, null, null, null, null, "id DESC");
+            while (c.moveToNext()) {
+                String email = getString(c, "email");
+                if (email.equalsIgnoreCase(emailConnecte)) continue;
+                Etudiant e = new Etudiant(getString(c, "nomComplet"), email, getString(c, "universite"), getInt(c, "age", 21), getDouble(c, "budgetMax", 0), getString(c, "modeDeVie"), getString(c, "nbColocataires"), getString(c, "proprete"), getString(c, "animauxAcceptes"));
+                e.setId(getLong(c, "id", 0));
+                e.setQuartier(getString(c, "quartier"));
+                e.setFaculte(getString(c, "faculte"));
+                e.setPhotoUrl(getString(c, "photoUrl"));
+                e.setPourcentageCompatible(ProfilAdapter.calculerCompatibilite(moi, e));
+                list.add(e);
             }
-
+            Collections.sort(list, new Comparator<Etudiant>() {
+                @Override public int compare(Etudiant a, Etudiant b) {
+                    return Double.compare(b.getPourcentageCompatible(), a.getPourcentageCompatible());
+                }
+            });
+            adapter.notifyDataSetChanged();
         } catch (Exception e) {
-            e.printStackTrace();
-
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
-
-        return Math.min(score, 100);
+            Toast.makeText(this, "Erreur : " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        } finally { if (c != null) c.close(); }
     }
 
-    private String getString(Cursor cursor, String column) {
-        int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return "";
-        }
-
-        return cursor.getString(index);
+    private String getString(Cursor c, String col) {
+        int i = c.getColumnIndex(col);
+        if (i == -1 || c.isNull(i)) return "";
+        return c.getString(i);
     }
-
-    private int getInt(Cursor cursor, String column, int defaultValue) {
-        int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return defaultValue;
-        }
-
-        return cursor.getInt(index);
+    private int getInt(Cursor c, String col, int def) {
+        int i = c.getColumnIndex(col);
+        if (i == -1 || c.isNull(i)) return def;
+        return c.getInt(i);
     }
-
-    private double getDouble(
-            Cursor cursor,
-            String column,
-            double defaultValue) {
-
-        int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return defaultValue;
-        }
-
-        return cursor.getDouble(index);
+    private long getLong(Cursor c, String col, long def) {
+        int i = c.getColumnIndex(col);
+        if (i == -1 || c.isNull(i)) return def;
+        return c.getLong(i);
     }
-
-    @Override
-    protected void onDestroy() {
-        if (databaseHelper != null) {
-            databaseHelper.close();
-        }
-
+    private double getDouble(Cursor c, String col, double def) {
+        int i = c.getColumnIndex(col);
+        if (i == -1 || c.isNull(i)) return def;
+        return c.getDouble(i);
+    }
+    @Override protected void onDestroy() {
+        if (db != null) db.close();
         super.onDestroy();
     }
 }

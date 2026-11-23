@@ -1,18 +1,22 @@
-
 package com.example.diar;
 
 import android.Manifest;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,14 +26,16 @@ import androidx.core.app.ActivityCompat;
 
 import org.json.JSONObject;
 import org.osmdroid.config.Configuration;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.CopyrightOverlay;
+import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.Polygon;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -41,32 +47,38 @@ public class Interface9 extends AppCompatActivity {
     private MapView mapView;
     private ImageView imgAppartement;
     private TextView tvTitre, tvPrix, tvDistance, tvNote;
+    private TextView tvFacInfo;
+    private Spinner spinnerRayon;
     private ImageButton btnBack;
-
-    private LocationManager locationManager;
-    private LocationListener locationListener;
 
     private DatabaseHelper databaseHelper;
 
     private final List<JSONObject> annonces = new ArrayList<>();
 
-    private double latitudeEtudiant = 36.8065;
-    private double longitudeEtudiant = 10.1815;
+    // Position de la FAC - par défaut Tunis, on la remplace par la vraie fac
+    private double latitudeFac = 36.8065;
+    private double longitudeFac = 10.1815;
+    private String nomFac = "Ma Faculté";
+    private String emailEtudiant = "";
+
+    // Rayon en km - l'étudiant peut changer : 2, 5, 10 km
+    private double rayonKm = 5.0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Configuration osmdroid
         Configuration.getInstance().load(
                 getApplicationContext(),
                 getSharedPreferences("osmdroid", MODE_PRIVATE)
         );
 
-        // Identification de l'application DIAR
         Configuration.getInstance().setUserAgentValue(
                 "DIAR/1.0 (Android; com.example.diar)"
         );
+        Configuration.getInstance().setTileDownloadThreads((short) 2);
+        Configuration.getInstance().setTileDownloadMaxQueueSize((short) 20);
+        Configuration.getInstance().setCacheMapTileCount((short) 200);
 
         setContentView(R.layout.interface9);
 
@@ -80,194 +92,171 @@ public class Interface9 extends AppCompatActivity {
         tvDistance = findViewById(R.id.textView15);
         tvNote = findViewById(R.id.textView16);
 
-        btnBack = findViewById(R.id.btnBack);
+        tvFacInfo = findViewById(R.id.tvFacInfo);
+        spinnerRayon = findViewById(R.id.spinnerRayon);
 
+        btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> finish());
 
         databaseHelper = new DatabaseHelper(this);
 
-        // Configuration de la carte
-        mapView.setTileSource(TileSourceFactory.MAPNIK);
+        // ✅ OSM Allemagne - sans 403, sans API KEY
+        mapView.setTileSource(new XYTileSource("OSM_DE",
+                0, 19, 256, ".png",
+                new String[]{"https://tile.openstreetmap.de/"}));
         mapView.setMultiTouchControls(true);
         mapView.setUseDataConnection(true);
-
         mapView.getController().setZoom(13.0);
 
         GeoPoint tunis = new GeoPoint(36.8065, 10.1815);
         mapView.getController().setCenter(tunis);
 
-        locationManager = (LocationManager)
-                getSystemService(LOCATION_SERVICE);
+        // --- Spinner rayon : 2km / 5km / 10km / Tous ---
+        String[] rayons = {
+                "2 km autour de ma fac",
+                "5 km autour de ma fac",
+                "10 km autour de ma fac",
+                "Tous les logements"
+        };
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                rayons
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerRayon.setAdapter(adapter);
+        spinnerRayon.setSelection(1); // 5 km par défaut
+        spinnerRayon.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) rayonKm = 2.0;
+                else if (position == 1) rayonKm = 5.0;
+                else if (position == 2) rayonKm = 10.0;
+                else rayonKm = 1000.0; // Tous
 
-        // Charger les annonces depuis SQLite
-        chargerAnnoncesDepuisSQLite();
+                if (tvFacInfo != null) {
+                    if (rayonKm >= 1000) {
+                        tvFacInfo.setText("🎓 " + nomFac + " • Tous les logements");
+                    } else {
+                        tvFacInfo.setText("🎓 " + nomFac + " • Logements à moins de " + (int) rayonKm + " km");
+                    }
+                }
+                chargerAnnoncesDepuisSQLite();
+            }
 
-        // Vérifier permission GPS
-        verifierPermissionGPS();
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+
+        // 1. On récupère l'email de l'étudiant connecté
+        emailEtudiant = getEmailEtudiantConnecte();
+
+        // 2. On cherche sa fac dans la BDD, puis on charge les annonces
+        chargerFaculteEtudiant();
     }
 
-    private boolean permissionGPSAccordee() {
+    private String getEmailEtudiantConnecte() {
+        // 👉 BRO : adapte cette ligne selon comment tu sauves l'email à la connexion
+        String emailIntent = getIntent().getStringExtra("emailEtudiant");
+        if (emailIntent != null && !emailIntent.isEmpty()) return emailIntent;
 
-        return ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        String emailIntent2 = getIntent().getStringExtra("email");
+        if (emailIntent2 != null && !emailIntent2.isEmpty()) return emailIntent2;
 
-                || ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED;
+        SharedPreferences prefs = getSharedPreferences("DIAR_SESSION", MODE_PRIVATE);
+        String emailPrefs = prefs.getString("emailEtudiant", "");
+        if (!emailPrefs.isEmpty()) return emailPrefs;
+
+        SharedPreferences prefs2 = getSharedPreferences("session", MODE_PRIVATE);
+        return prefs2.getString("email", "");
     }
 
-    private void verifierPermissionGPS() {
-
-        if (!permissionGPSAccordee()) {
-
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                    },
-                    LOCATION_PERMISSION_CODE
-            );
-
+    private void chargerFaculteEtudiant() {
+        if (emailEtudiant == null || emailEtudiant.isEmpty()) {
+            Toast.makeText(this, "Fac non trouvée, affichage par défaut", Toast.LENGTH_SHORT).show();
+            chargerAnnoncesDepuisSQLite();
             return;
         }
 
-        obtenirPositionGPS();
-    }
+        new Thread(() -> {
+            String faculte = "";
+            String universite = "";
+            String ville = "";
 
-    private void obtenirPositionGPS() {
-
-        if (!permissionGPSAccordee()) return;
-
-        try {
-
-            Location position = null;
-
-            if (locationManager.isProviderEnabled(
-                    LocationManager.GPS_PROVIDER)) {
-
-                position = locationManager.getLastKnownLocation(
-                        LocationManager.GPS_PROVIDER
-                );
-            }
-
-            if (position == null &&
-                    locationManager.isProviderEnabled(
-                            LocationManager.NETWORK_PROVIDER)) {
-
-                position = locationManager.getLastKnownLocation(
-                        LocationManager.NETWORK_PROVIDER
-                );
-            }
-
-            if (position != null) {
-
-                mettreAJourPosition(position);
-                return;
-            }
-
-            Toast.makeText(
-                    this,
-                    "Recherche de votre position...",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            locationListener = new LocationListener() {
-
-                @Override
-                public void onLocationChanged(
-                        @NonNull Location location) {
-
-                    mettreAJourPosition(location);
-                    arreterGPS();
+            Cursor cursor = null;
+            try {
+                cursor = databaseHelper.getEtudiant(emailEtudiant);
+                if (cursor != null && cursor.moveToFirst()) {
+                    faculte = getString(cursor, "faculte");
+                    universite = getString(cursor, "universite");
+                    ville = getString(cursor, "ville");
                 }
-            };
-
-            if (locationManager.isProviderEnabled(
-                    LocationManager.NETWORK_PROVIDER)) {
-
-                locationManager.requestLocationUpdates(
-                        LocationManager.NETWORK_PROVIDER,
-                        1000,
-                        5,
-                        locationListener
-                );
-
-            } else if (locationManager.isProviderEnabled(
-                    LocationManager.GPS_PROVIDER)) {
-
-                locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        1000,
-                        5,
-                        locationListener
-                );
-
-            } else {
-
-                Toast.makeText(
-                        this,
-                        "Activez le GPS de votre téléphone",
-                        Toast.LENGTH_LONG
-                ).show();
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur lecture etudiant", e);
+            } finally {
+                if (cursor != null) cursor.close();
             }
 
-        } catch (SecurityException e) {
+            String nomCompletFac = (faculte + " " + universite + " " + ville).trim();
+            if (nomCompletFac.isEmpty()) nomCompletFac = "Tunis";
+            nomFac = !faculte.isEmpty() ? faculte : nomCompletFac;
 
-            Log.e(TAG, "Erreur permission GPS", e);
-        }
+            // On convertit le nom de la fac en GPS avec Geocoder
+            GeoPoint pointFac = geocoderFac(nomCompletFac);
+
+            runOnUiThread(() -> {
+                if (pointFac != null) {
+                    latitudeFac = pointFac.getLatitude();
+                    longitudeFac = pointFac.getLongitude();
+                    mapView.getController().setZoom(13.0);
+                    mapView.getController().setCenter(pointFac);
+                    Toast.makeText(this, "Fac : " + nomFac, Toast.LENGTH_SHORT).show();
+                    if (tvFacInfo != null) {
+                        tvFacInfo.setText("🎓 " + nomFac + " • Logements à moins de " + (int) rayonKm + " km");
+                    }
+                }
+                chargerAnnoncesDepuisSQLite();
+            });
+
+        }).start();
     }
 
-    private void mettreAJourPosition(Location position) {
-
-        latitudeEtudiant = position.getLatitude();
-        longitudeEtudiant = position.getLongitude();
-
-        GeoPoint point = new GeoPoint(
-                latitudeEtudiant,
-                longitudeEtudiant
-        );
-
-        mapView.getController().animateTo(point);
-        mapView.getController().setZoom(14.0);
-
-        chargerAnnoncesDepuisSQLite();
+    private GeoPoint geocoderFac(String nomFacComplet) {
+        if (!Geocoder.isPresent()) return null;
+        try {
+            Geocoder geocoder = new Geocoder(this, Locale.FRANCE);
+            List<Address> list = geocoder.getFromLocationName(nomFacComplet + ", Tunisie", 1);
+            if (list != null && !list.isEmpty()) {
+                Address a = list.get(0);
+                return new GeoPoint(a.getLatitude(), a.getLongitude());
+            }
+            // 2ème essai : juste le nom
+            List<Address> list2 = geocoder.getFromLocationName(nomFacComplet, 1);
+            if (list2 != null && !list2.isEmpty()) {
+                Address a = list2.get(0);
+                return new GeoPoint(a.getLatitude(), a.getLongitude());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Geocoder fac erreur", e);
+        }
+        return null;
     }
 
     private void chargerAnnoncesDepuisSQLite() {
-
         annonces.clear();
-
         Cursor cursor = null;
-
         try {
-
             cursor = databaseHelper.getReadableDatabase().query(
-                    "Annonce",
-                    null,
-                    "disponible = ?",
-                    new String[]{"1"},
-                    null,
-                    null,
-                    "id DESC"
+                    "Annonce", null, "disponible = ?",
+                    new String[]{"1"}, null, null, "id DESC"
             );
 
             while (cursor.moveToNext()) {
-
                 JSONObject annonce = new JSONObject();
-
                 int id = getInt(cursor, "id", -1);
-
-                double latitude = getDouble(
-                        cursor, "latitude", 0
-                );
-
-                double longitude = getDouble(
-                        cursor, "longitude", 0
-                );
+                double latitude = getDouble(cursor, "latitude", 0);
+                double longitude = getDouble(cursor, "longitude", 0);
 
                 annonce.put("id", id);
                 annonce.put("titre", getString(cursor, "titre"));
@@ -278,366 +267,172 @@ public class Interface9 extends AppCompatActivity {
                 annonce.put("latitude", latitude);
                 annonce.put("longitude", longitude);
 
-                // Récupérer la première photo
                 Cursor photos = databaseHelper.getReadableDatabase().query(
-                        "AnnoncePhoto",
-                        new String[]{"photoPath"},
-                        "annonce_id = ?",
-                        new String[]{String.valueOf(id)},
-                        null,
-                        null,
-                        "id ASC"
+                        "AnnoncePhoto", new String[]{"photoPath"},
+                        "annonce_id = ?", new String[]{String.valueOf(id)},
+                        null, null, "id ASC"
                 );
-
                 String photoPath = "";
-
                 try {
-
                     if (photos.moveToFirst()) {
-
-                        photoPath = photos.getString(
-                                photos.getColumnIndexOrThrow("photoPath")
-                        );
+                        photoPath = photos.getString(photos.getColumnIndexOrThrow("photoPath"));
                     }
-
                 } finally {
-
                     photos.close();
                 }
-
                 annonce.put("photo", photoPath);
 
-                // Calcul distance
+                // ✅ Distance FAC -> LOGEMENT (pas GPS -> logement)
                 if (latitude != 0 && longitude != 0) {
-
                     float[] resultat = new float[1];
-
-                    Location.distanceBetween(
-                            latitudeEtudiant,
-                            longitudeEtudiant,
-                            latitude,
-                            longitude,
-                            resultat
-                    );
-
+                    Location.distanceBetween(latitudeFac, longitudeFac, latitude, longitude, resultat);
                     double distanceKm = resultat[0] / 1000.0;
-
                     annonce.put("distanceKm", distanceKm);
 
-                } else {
-
-                    annonce.put("distanceKm", 0);
+                    // ✅ FILTRE : on garde que ceux dans le rayon
+                    if (distanceKm <= rayonKm) {
+                        annonces.add(annonce);
+                    }
                 }
-
-                annonces.add(annonce);
             }
+
+            // ✅ Tri : le plus proche de la fac d'abord
+            Collections.sort(annonces, (a, b) -> Double.compare(a.optDouble("distanceKm", 999), b.optDouble("distanceKm", 999)));
 
             afficherMarkers();
-
-            if (!annonces.isEmpty()) {
-
-                afficherAnnonce(annonces.get(0));
-
-            } else {
-
-                afficherAucuneAnnonce();
-            }
+            if (!annonces.isEmpty()) afficherAnnonce(annonces.get(0));
+            else afficherAucuneAnnonce();
 
         } catch (Exception e) {
-
             Log.e(TAG, "Erreur chargement SQLite", e);
-
-            Toast.makeText(
-                    this,
-                    "Erreur lors du chargement des annonces",
-                    Toast.LENGTH_LONG
-            ).show();
-
+            Toast.makeText(this, "Erreur lors du chargement des annonces", Toast.LENGTH_LONG).show();
         } finally {
-
-            if (cursor != null) {
-                cursor.close();
-            }
+            if (cursor != null) cursor.close();
         }
     }
 
     private void afficherMarkers() {
-
         mapView.getOverlays().clear();
 
-        // Position étudiant
-        Marker markerEtudiant = new Marker(mapView);
+        // 🔴 1. PIN DE LA FAC - au centre
+        Marker markerFac = new Marker(mapView);
+        markerFac.setPosition(new GeoPoint(latitudeFac, longitudeFac));
+        markerFac.setTitle("🎓 " + nomFac);
+        markerFac.setSnippet("Votre faculté");
+        markerFac.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        try {
+            markerFac.setIcon(getResources().getDrawable(R.drawable.ic_pin_fac, getTheme()));
+        } catch (Exception ignored) {
+        }
+        mapView.getOverlays().add(markerFac);
 
-        markerEtudiant.setPosition(
-                new GeoPoint(
-                        latitudeEtudiant,
-                        longitudeEtudiant
-                )
-        );
+        // ⭕ 2. CERCLE autour de la fac
+        if (rayonKm < 100) {
+            Polygon cercle = new Polygon(mapView);
+            ArrayList<GeoPoint> points = Polygon.pointsAsCircle(new GeoPoint(latitudeFac, longitudeFac), rayonKm * 1000.0);
+            cercle.setPoints(points);
+            cercle.setFillColor(0x2200FF00);
+            cercle.setStrokeColor(0xFF00AA00);
+            cercle.setStrokeWidth(2f);
+            mapView.getOverlays().add(cercle);
+        }
 
-        markerEtudiant.setTitle("Ma position");
-
-        markerEtudiant.setAnchor(
-                Marker.ANCHOR_CENTER,
-                Marker.ANCHOR_BOTTOM
-        );
-
-        mapView.getOverlays().add(markerEtudiant);
-
-        // Annonces
+        // 🟢 3. PINS DES LOGEMENTS PROCHES
         for (JSONObject annonce : annonces) {
-
             double lat = annonce.optDouble("latitude", 0);
             double lon = annonce.optDouble("longitude", 0);
-
             if (lat == 0 || lon == 0) continue;
 
             Marker marker = new Marker(mapView);
-
             marker.setPosition(new GeoPoint(lat, lon));
-
-            marker.setTitle(
-                    annonce.optString("titre", "Appartement")
-            );
-
-            marker.setSnippet(
-                    annonce.optString("prix", "0") + " DT/mois"
-            );
-
-            marker.setAnchor(
-                    Marker.ANCHOR_CENTER,
-                    Marker.ANCHOR_BOTTOM
-            );
-
+            double dist = annonce.optDouble("distanceKm", 0);
+            marker.setTitle(annonce.optString("titre", "Appartement"));
+            marker.setSnippet(String.format(Locale.getDefault(), "%.0f DT/mois • 📍 %.2f km de %s", annonce.optDouble("prix", 0), dist, nomFac));
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
             marker.setOnMarkerClickListener((m, map) -> {
-
                 afficherAnnonce(annonce);
-
-                map.getController().animateTo(
-                        m.getPosition()
-                );
-
+                map.getController().animateTo(m.getPosition());
                 return true;
             });
-
             mapView.getOverlays().add(marker);
         }
 
-        // Copyright OpenStreetMap
-        mapView.getOverlays().add(
-                new CopyrightOverlay(this)
-        );
-
+        mapView.getOverlays().add(new CopyrightOverlay(this));
         mapView.invalidate();
     }
 
     private void afficherAnnonce(JSONObject annonce) {
-
-        tvTitre.setText(
-                annonce.optString("titre", "Appartement")
-        );
-
+        tvTitre.setText(annonce.optString("titre", "Appartement"));
         double prix = annonce.optDouble("prix", 0);
-
-        tvPrix.setText(
-                String.format(
-                        Locale.getDefault(),
-                        "%.0f DT/mois",
-                        prix
-                )
-        );
-
+        tvPrix.setText(String.format(Locale.getDefault(), "%.0f DT/mois", prix));
         double distance = annonce.optDouble("distanceKm", 0);
-
-        tvDistance.setText(
-                String.format(
-                        Locale.getDefault(),
-                        "📍 %.2f km",
-                        distance
-                )
-        );
-
-        tvNote.setText("");
-
-        afficherPhoto(
-                annonce.optString("photo", "")
-        );
+        int minutesPied = (int) (distance / 5.0 * 60); // 5 km/h à pied
+        int minutesVoiture = (int) (distance / 30.0 * 60); // 30 km/h en voiture
+        tvDistance.setText(String.format(Locale.getDefault(), "📍 %.2f km de %s • 🚶 %d min • 🚗 %d min", distance, nomFac, minutesPied, minutesVoiture));
+        tvNote.setText("Quartier : " + annonce.optString("quartier", "") + " • Ville : " + annonce.optString("ville", ""));
+        afficherPhoto(annonce.optString("photo", ""));
     }
 
     private void afficherPhoto(String photoPath) {
-
         imgAppartement.setImageResource(R.drawable.appart);
-
-        if (photoPath == null ||
-                photoPath.trim().isEmpty() ||
-                "null".equals(photoPath)) {
-
-            return;
-        }
-
+        if (photoPath == null || photoPath.trim().isEmpty() || "null".equals(photoPath)) return;
         try {
-
             File file = new File(photoPath);
-
             if (file.exists()) {
-
-                Bitmap bitmap = BitmapFactory.decodeFile(
-                        file.getAbsolutePath()
-                );
-
-                if (bitmap != null) {
-                    imgAppartement.setImageBitmap(bitmap);
-                }
+                Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+                if (bitmap != null) imgAppartement.setImageBitmap(bitmap);
             }
-
         } catch (Exception e) {
-
             Log.e(TAG, "Erreur affichage photo", e);
         }
     }
 
     private void afficherAucuneAnnonce() {
-
-        tvTitre.setText("Aucune annonce disponible");
+        if (rayonKm >= 1000) {
+            tvTitre.setText("Aucun logement disponible");
+        } else {
+            tvTitre.setText("Aucun logement à moins de " + (int) rayonKm + " km de " + nomFac);
+        }
         tvPrix.setText("-- DT/mois");
-        tvDistance.setText("Aucune annonce proche");
+        tvDistance.setText("Essayez d'augmenter le rayon");
         tvNote.setText("");
-
         imgAppartement.setImageResource(R.drawable.appart);
     }
 
     private String getString(Cursor cursor, String column) {
-
         int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return "";
-        }
-
+        if (index == -1 || cursor.isNull(index)) return "";
         return cursor.getString(index);
     }
 
-    private int getInt(
-            Cursor cursor,
-            String column,
-            int defaultValue) {
-
+    private int getInt(Cursor cursor, String column, int defaultValue) {
         int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return defaultValue;
-        }
-
+        if (index == -1 || cursor.isNull(index)) return defaultValue;
         return cursor.getInt(index);
     }
 
-    private double getDouble(
-            Cursor cursor,
-            String column,
-            double defaultValue) {
-
+    private double getDouble(Cursor cursor, String column, double defaultValue) {
         int index = cursor.getColumnIndex(column);
-
-        if (index == -1 || cursor.isNull(index)) {
-            return defaultValue;
-        }
-
+        if (index == -1 || cursor.isNull(index)) return defaultValue;
         return cursor.getDouble(index);
-    }
-
-    private void arreterGPS() {
-
-        if (locationManager != null &&
-                locationListener != null) {
-
-            try {
-
-                locationManager.removeUpdates(locationListener);
-
-            } catch (SecurityException e) {
-
-                Log.e(TAG, "Impossible d'arrêter GPS", e);
-            }
-
-            locationListener = null;
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            @NonNull String[] permissions,
-            @NonNull int[] grantResults) {
-
-        super.onRequestPermissionsResult(
-                requestCode,
-                permissions,
-                grantResults
-        );
-
-        if (requestCode == LOCATION_PERMISSION_CODE) {
-
-            boolean autorise = false;
-
-            for (int result : grantResults) {
-
-                if (result == PackageManager.PERMISSION_GRANTED) {
-
-                    autorise = true;
-                    break;
-                }
-            }
-
-            if (autorise) {
-
-                obtenirPositionGPS();
-
-            } else {
-
-                Toast.makeText(
-                        this,
-                        "Autorisez la localisation pour voir votre position",
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        }
     }
 
     @Override
     protected void onResume() {
-
         super.onResume();
-
-        if (mapView != null) {
-            mapView.onResume();
-        }
+        if (mapView != null) mapView.onResume();
     }
 
     @Override
     protected void onPause() {
-
-        arreterGPS();
-
-        if (mapView != null) {
-            mapView.onPause();
-        }
-
+        if (mapView != null) mapView.onPause();
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
-
-        arreterGPS();
-
-        if (mapView != null) {
-            mapView.onDetach();
-        }
-
-        if (databaseHelper != null) {
-            databaseHelper.close();
-        }
-
+        if (mapView != null) mapView.onDetach();
+        if (databaseHelper != null) databaseHelper.close();
         super.onDestroy();
     }
 }

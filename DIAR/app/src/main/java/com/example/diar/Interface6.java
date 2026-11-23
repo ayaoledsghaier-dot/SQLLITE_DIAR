@@ -310,7 +310,7 @@ public class Interface6 extends AppCompatActivity {
 
             Intent intent = new Intent(
                     Interface6.this,
-                    Interfaceverification.class
+                    Interface7.class
             );
 
             intent.putExtra("USER_EMAIL", email);

@@ -1,5 +1,4 @@
 package com.example.diar;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -10,7 +9,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "diar.db";
     private static final int DATABASE_VERSION = 10;
-// constructeur l'acces  au application android necess pour ouvrire el base de données
+    // constructeur l'acces  au application android necess pour ouvrire el base de données
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
         //super bech tml apple constructeur databasehelper
@@ -24,14 +23,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-            createCoreTables(db);
-            createAnnoncePhotoTable(db);
-            createAuxiliaryTables(db);
+        createCoreTables(db);
+        createAnnoncePhotoTable(db);
+        createAuxiliaryTables(db);
     }
-
-    // =====================================
-    // TABLES PRINCIPALES
-    // =====================================
 
     private void createCoreTables(SQLiteDatabase db) {
 
@@ -85,22 +80,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "emailProprietaire TEXT)");
     }
 
-    // =====================================
-    // PHOTOS ANNONCES
-    // =====================================
-
     private void createAnnoncePhotoTable(SQLiteDatabase db) {
-
         db.execSQL("CREATE TABLE IF NOT EXISTS AnnoncePhoto (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "annonce_id INTEGER NOT NULL," +
                 "photoPath TEXT," +
                 "FOREIGN KEY(annonce_id) REFERENCES Annonce(id) ON DELETE CASCADE)");
     }
-
-    // =====================================
-    // TABLES SUPPLEMENTAIRES
-    // =====================================
 
     private void createAuxiliaryTables(SQLiteDatabase db) {
 
@@ -157,17 +143,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "conversationId INTEGER DEFAULT 0)");
     }
 
-    // =====================================
-    // MIGRATION SQLITE
-    // =====================================
-
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-
         db.beginTransaction();
-
         try {
-
             createCoreTables(db);
 
             addColumnIfNotExists(db, "Etudiant", "nomComplet", "TEXT");
@@ -221,27 +200,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             addColumnIfNotExists(db, "Notification", "conversationId", "INTEGER DEFAULT 0");
 
             db.setTransactionSuccessful();
-
         } finally {
             db.endTransaction();
         }
     }
 
     private void addColumnIfNotExists(SQLiteDatabase db, String table, String column, String type) {
-
-        Cursor cursor = db.rawQuery(
-                "PRAGMA table_info(" + table + ")",
-                null
-        );
-
+        Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null);
         boolean exists = false;
-
         try {
             while (cursor.moveToNext()) {
-                String columnName = cursor.getString(
-                        cursor.getColumnIndexOrThrow("name")
-                );
-
+                String columnName = cursor.getString(cursor.getColumnIndexOrThrow("name"));
                 if (column.equalsIgnoreCase(columnName)) {
                     exists = true;
                     break;
@@ -250,31 +219,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } finally {
             cursor.close();
         }
-
         if (!exists) {
-            db.execSQL(
-                    "ALTER TABLE " + table +
-                            " ADD COLUMN " + column + " " + type
-            );
+            db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);
         }
     }
 
-    // =====================================
-    // ETUDIANT
-    // =====================================
-
-    public boolean ajouterEtudiant(
-            String nomComplet,
-            String email,
-            String motDePasse,
-            String genre,
-            String universite,
-            String faculte,
-            String ville,
-            String niveau) {
-
+    public boolean ajouterEtudiant(String nomComplet, String email, String motDePasse, String genre, String universite, String faculte, String ville, String niveau) {
         ContentValues values = new ContentValues();
-
         values.put("nomComplet", nomComplet);
         values.put("email", email);
         values.put("motDePasse", motDePasse);
@@ -283,21 +234,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("faculte", faculte);
         values.put("ville", ville);
         values.put("niveau", niveau);
-
-        return getWritableDatabase().insert(
-                "Etudiant", null, values
-        ) != -1;
+        return getWritableDatabase().insert("Etudiant", null, values) != -1;
     }
 
-    public boolean verifierConnexionEtudiant(
-            String email,
-            String motDePasse) {
-
-        Cursor cursor = getReadableDatabase().rawQuery(
-                "SELECT id FROM Etudiant WHERE email=? AND motDePasse=?",
-                new String[]{email, motDePasse}
-        );
-
+    public boolean verifierConnexionEtudiant(String email, String motDePasse) {
+        Cursor cursor = getReadableDatabase().rawQuery("SELECT id FROM Etudiant WHERE email=? AND motDePasse=?", new String[]{email, motDePasse});
         try {
             return cursor.moveToFirst();
         } finally {
@@ -306,85 +247,45 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getEtudiant(String email) {
-        return getReadableDatabase().rawQuery(
-                "SELECT * FROM Etudiant WHERE email=?",
-                new String[]{email}
-        );
+        return getReadableDatabase().rawQuery("SELECT * FROM Etudiant WHERE email=?", new String[]{email});
     }
 
-    public boolean updateProfilEtudiant(
-            String email,
-            String nom,
-            String genre,
-            String universite,
-            String faculte,
-            String ville,
-            String niveau) {
-
+    public boolean updateProfilEtudiant(String email, String nom, String genre, String universite, String faculte, String ville, String niveau) {
         ContentValues values = new ContentValues();
-
         values.put("nomComplet", nom);
         values.put("genre", genre);
         values.put("universite", universite);
         values.put("faculte", faculte);
         values.put("ville", ville);
         values.put("niveau", niveau);
-
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
     }
 
-    public boolean enregistrerProfilEtudiant(
-            String email,
-            String genre,
-            String universite,
-            String niveau,
-            String faculte,
-            String ville) {
-
+    public boolean enregistrerProfilEtudiant(String email, String genre, String universite, String niveau, String faculte, String ville, int age) {
         ContentValues values = new ContentValues();
-
         values.put("genre", genre);
         values.put("universite", universite);
         values.put("niveau", niveau);
         values.put("faculte", faculte);
         values.put("ville", ville);
-
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+        values.put("age", age);
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
     }
 
-    public boolean updatePreferencesEtudiant(
-            String email,
-            String typeLogement,
-            String locationType,
-            double budgetMax,
-            String equipements,
-            String quartier) {
-
+    public boolean updatePreferencesEtudiant(String email, String typeLogement, String locationType, double budgetMax, String equipements, String quartier) {
         ContentValues values = new ContentValues();
-
         values.put("typeLogement", typeLogement);
         values.put("locationType", locationType);
         values.put("budgetMax", budgetMax);
         values.put("equipements", equipements);
         values.put("quartier", quartier);
-
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
     }
 
     public boolean updatePhotoEtudiant(String email, String photoPath) {
-
         ContentValues values = new ContentValues();
         values.put("photoUrl", photoPath);
-
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
     }
 
     // =====================================
@@ -392,25 +293,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // =====================================
 
     public boolean enregistrerAttestation(String email, String path) {
-
         ContentValues values = new ContentValues();
-
         values.put("attestationPath", path);
         values.put("statutVerification", "En attente");
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
+    }
 
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+    public Cursor getProfilPourVerification(String email) {
+        return getReadableDatabase().rawQuery("SELECT nomComplet, universite, faculte, niveau, genre, ville FROM Etudiant WHERE email=?", new String[]{email});
     }
 
     public boolean modifierStatutVerification(String email, String statut) {
-
         ContentValues values = new ContentValues();
         values.put("statutVerification", statut);
-
-        return getWritableDatabase().update(
-                "Etudiant", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Etudiant", values, "email=?", new String[]{email}) > 0;
     }
 
     public Cursor getAttestationEtudiant(String email) {
@@ -421,53 +317,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
-    public boolean changerMotDePasseEtudiant(
-            String email,
-            String ancien,
-            String nouveau) {
-
+    public boolean changerMotDePasseEtudiant(String email, String ancien, String nouveau) {
         ContentValues values = new ContentValues();
         values.put("motDePasse", nouveau);
-
-        return getWritableDatabase().update(
-                "Etudiant",
-                values,
-                "email=? AND motDePasse=?",
-                new String[]{email, ancien}
-        ) > 0;
+        return getWritableDatabase().update("Etudiant", values, "email=? AND motDePasse=?", new String[]{email, ancien}) > 0;
     }
 
-    // =====================================
-    // PROPRIETAIRE
-    // =====================================
-
-    public boolean ajouterProprietaire(
-            String nom,
-            String email,
-            String motDePasse,
-            String photoPath) {
-
+    public boolean ajouterProprietaire(String nom, String email, String motDePasse, String photoPath) {
         ContentValues values = new ContentValues();
-
         values.put("nom", nom);
         values.put("email", email);
         values.put("motDePasse", motDePasse);
         values.put("photoPath", photoPath);
-
-        return getWritableDatabase().insert(
-                "Proprietaire", null, values
-        ) != -1;
+        return getWritableDatabase().insert("Proprietaire", null, values) != -1;
     }
 
-    public boolean verifierConnexionProprietaire(
-            String email,
-            String motDePasse) {
-
-        Cursor cursor = getReadableDatabase().rawQuery(
-                "SELECT id FROM Proprietaire WHERE email=? AND motDePasse=?",
-                new String[]{email, motDePasse}
-        );
-
+    public boolean verifierConnexionProprietaire(String email, String motDePasse) {
+        Cursor cursor = getReadableDatabase().rawQuery("SELECT id FROM Proprietaire WHERE email=? AND motDePasse=?", new String[]{email, motDePasse});
         try {
             return cursor.moveToFirst();
         } finally {
@@ -476,72 +342,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getProprietaire(String email) {
-        return getReadableDatabase().rawQuery(
-                "SELECT * FROM Proprietaire WHERE email=?",
-                new String[]{email}
-        );
+        return getReadableDatabase().rawQuery("SELECT * FROM Proprietaire WHERE email=?", new String[]{email});
     }
 
     public boolean updatePhotoProprietaire(String email, String photoPath) {
-
         ContentValues values = new ContentValues();
         values.put("photoPath", photoPath);
-
-        return getWritableDatabase().update(
-                "Proprietaire", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Proprietaire", values, "email=?", new String[]{email}) > 0;
     }
 
-    public boolean updateProfilProprietaire(
-            String email,
-            String nouveauNom) {
-
+    public boolean updateProfilProprietaire(String email, String nouveauNom) {
         ContentValues values = new ContentValues();
         values.put("nom", nouveauNom);
-
-        return getWritableDatabase().update(
-                "Proprietaire", values, "email=?", new String[]{email}
-        ) > 0;
+        return getWritableDatabase().update("Proprietaire", values, "email=?", new String[]{email}) > 0;
     }
 
-    public boolean changerMotDePasseProprietaire(
-            String email,
-            String ancien,
-            String nouveau) {
-
+    public boolean changerMotDePasseProprietaire(String email, String ancien, String nouveau) {
         ContentValues values = new ContentValues();
         values.put("motDePasse", nouveau);
-
-        return getWritableDatabase().update(
-                "Proprietaire",
-                values,
-                "email=? AND motDePasse=?",
-                new String[]{email, ancien}
-        ) > 0;
+        return getWritableDatabase().update("Proprietaire", values, "email=? AND motDePasse=?", new String[]{email, ancien}) > 0;
     }
 
-    // =====================================
-    // ANNONCE
-    // =====================================
-
-    public long ajouterAnnonce(
-            String titre,
-            String description,
-            String ville,
-            String adresse,
-            String quartier,
-            String nomProprietaire,
-            String type,
-            double prix,
-            int nbPersonnes,
-            int nbChambres,
-            double surface,
-            double latitude,
-            double longitude,
-            String emailProprietaire) {
-
+    public long ajouterAnnonce(String titre, String description, String ville, String adresse, String quartier, String nomProprietaire, String type, double prix, int nbPersonnes, int nbChambres, double surface, double latitude, double longitude, String emailProprietaire) {
         ContentValues values = new ContentValues();
-
         values.put("titre", titre);
         values.put("description", description);
         values.put("ville", ville);
@@ -557,10 +380,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("longitude", longitude);
         values.put("disponible", 1);
         values.put("emailProprietaire", emailProprietaire);
-
-        return getWritableDatabase().insert(
-                "Annonce", null, values
-        );
+        return getWritableDatabase().insert("Annonce", null, values);
     }
 
     public Cursor getToutesLesAnnonces() {
@@ -590,19 +410,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ) > 0;
     }
 
-    public boolean modifierDisponibiliteAnnonce(
-            long annonceId,
-            boolean disponible) {
-
+    public boolean modifierDisponibiliteAnnonce(long annonceId, boolean disponible) {
         ContentValues values = new ContentValues();
         values.put("disponible", disponible ? 1 : 0);
-
-        return getWritableDatabase().update(
-                "Annonce",
-                values,
-                "id=?",
-                new String[]{String.valueOf(annonceId)}
-        ) > 0;
+        return getWritableDatabase().update("Annonce", values, "id=?", new String[]{String.valueOf(annonceId)}) > 0;
     }
 
     // =====================================
@@ -610,15 +421,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // =====================================
 
     public boolean ajouterPhotoAnnonce(long annonceId, String photoPath) {
-
         ContentValues values = new ContentValues();
-
         values.put("annonce_id", annonceId);
         values.put("photoPath", photoPath);
-
-        return getWritableDatabase().insert(
-                "AnnoncePhoto", null, values
-        ) != -1;
+        return getWritableDatabase().insert("AnnoncePhoto", null, values) != -1;
     }
 
     public Cursor getPhotosAnnonce(long annonceId) {
@@ -739,27 +545,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // FAVORIS COLOCATAIRES
     // =====================================
 
-    public boolean ajouterFavoriColocataire(
-            String emailEtudiant,
-            long colocataireId) {
-
-        if (emailEtudiant == null ||
-                emailEtudiant.trim().isEmpty() ||
-                colocataireId <= 0) {
+    public boolean ajouterFavoriColocataire(String emailEtudiant, long colocataireId) {
+        if (emailEtudiant == null || emailEtudiant.trim().isEmpty() || colocataireId <= 0) {
             return false;
         }
-
         ContentValues values = new ContentValues();
-
         values.put("emailEtudiant", emailEtudiant);
         values.put("colocataire_id", colocataireId);
-
-        return getWritableDatabase().insertWithOnConflict(
-                "FavorisColocataires",
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_IGNORE
-        ) != -1;
+        return getWritableDatabase().insertWithOnConflict("FavorisColocataires", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1;
     }
 
     public boolean supprimerFavoriColocataire(
@@ -791,7 +584,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public Cursor getFavorisColocataires(String emailEtudiant) {
-
         return getReadableDatabase().rawQuery(
                 "SELECT " +
                         "Etudiant.id AS id, " +
@@ -865,7 +657,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         ContentValues values = new ContentValues();
-
         values.put("annonce_id", annonceId);
         values.put("emailEtudiant", etudiant);
         values.put("emailProprietaire", proprietaire);
@@ -1214,40 +1005,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
-    // =====================================
-    // CONVERSATIONS
-    // =====================================
-
-    public long creerConversation(
-            String emailEtudiant,
-            String emailProprietaire,
-            String nomEtudiant,
-            String nomProprietaire,
-            String dateCreation) {
-
+    public long creerConversation(String emailEtudiant, String emailProprietaire, String nomEtudiant, String nomProprietaire, String dateCreation) {
         ContentValues values = new ContentValues();
-
         values.put("emailEtudiant", emailEtudiant);
         values.put("emailProprietaire", emailProprietaire);
         values.put("nomEtudiant", nomEtudiant);
         values.put("nomProprietaire", nomProprietaire);
         values.put("dateCreation", dateCreation);
-
-        long result = getWritableDatabase().insertWithOnConflict(
-                "Conversation",
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_IGNORE
-        );
-
+        long result = getWritableDatabase().insertWithOnConflict("Conversation", null, values, SQLiteDatabase.CONFLICT_IGNORE);
         if (result == -1) {
-
             Cursor cursor = getReadableDatabase().rawQuery(
                     "SELECT id FROM Conversation " +
                             "WHERE emailEtudiant=? AND emailProprietaire=?",
                     new String[]{emailEtudiant, emailProprietaire}
             );
-
             try {
                 if (cursor.moveToFirst()) {
                     result = cursor.getLong(0);
@@ -1256,7 +1027,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 cursor.close();
             }
         }
-
         return result;
     }
 
@@ -1274,26 +1044,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
-    // =====================================
-    // MESSAGES
-    // =====================================
-
-    public long envoyerMessage(
-            long conversationId,
-            String emailExpediteur,
-            String contenu,
-            String dateEnvoi) {
-
+    public long envoyerMessage(long conversationId, String emailExpediteur, String contenu, String dateEnvoi) {
         ContentValues values = new ContentValues();
-
         values.put("conversation_id", conversationId);
         values.put("emailExpediteur", emailExpediteur);
         values.put("contenu", contenu);
         values.put("dateEnvoi", dateEnvoi);
-
-        return getWritableDatabase().insert(
-                "Message", null, values
-        );
+        return getWritableDatabase().insert("Message", null, values);
     }
 
     public Cursor getMessages(long conversationId) {
@@ -1304,15 +1061,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public boolean marquerMessagesLus(long conversationId) {
-
         ContentValues values = new ContentValues();
         values.put("lu", 1);
-
-        return getWritableDatabase().update(
-                "Message",
-                values,
-                "conversation_id=?",
-                new String[]{String.valueOf(conversationId)}
-        ) > 0;
+        return getWritableDatabase().update("Message", values, "conversation_id=?", new String[]{String.valueOf(conversationId)}) > 0;
     }
 }

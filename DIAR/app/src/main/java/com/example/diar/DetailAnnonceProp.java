@@ -1,11 +1,12 @@
-
 package com.example.diar;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -16,7 +17,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.osmdroid.config.Configuration;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
@@ -80,9 +81,17 @@ public class DetailAnnonceProp extends AppCompatActivity {
         btnSupprimerAnnonce = findViewById(R.id.btnSupprimerAnnonce);
         btnRetourDetailProp = findViewById(R.id.btnRetourDetailProp);
 
-        Configuration.getInstance().setUserAgentValue(getPackageName());
+        Context ctx = getApplicationContext();
+        Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
+        Configuration.getInstance().setUserAgentValue("DIAR/1.0 (Android; com.example.diar)");
+        Configuration.getInstance().setTileDownloadThreads((short) 2);
+        Configuration.getInstance().setTileDownloadMaxQueueSize((short) 20);
+        Configuration.getInstance().setCacheMapTileCount((short) 200);
 
-        mapDetailProp.setTileSource(TileSourceFactory.MAPNIK);
+        // ✅ NOUVEAU - OSM Allemagne, sans clé API, sans 403
+        mapDetailProp.setTileSource(new XYTileSource("OSM_DE",
+                0, 19, 256, ".png",
+                new String[]{"https://tile.openstreetmap.de/"}));
         mapDetailProp.setMultiTouchControls(true);
 
         btnRetourDetailProp.setOnClickListener(v -> finish());
