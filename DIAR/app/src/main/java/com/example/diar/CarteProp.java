@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.Manifest;
@@ -19,9 +18,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import org.osmdroid.config.Configuration;
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
 import org.osmdroid.util.GeoPoint;
-import org.osmdroid.util.MapTileIndex;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
@@ -55,7 +53,10 @@ public class CarteProp extends AppCompatActivity {
                 PreferenceManager.getDefaultSharedPreferences(ctx)
         );
 
-        Configuration.getInstance().setUserAgentValue(getPackageName());
+        Configuration.getInstance().setUserAgentValue("DIAR/1.0 (Android; com.example.diar)");
+        Configuration.getInstance().setTileDownloadThreads((short) 2);
+        Configuration.getInstance().setTileDownloadMaxQueueSize((short) 20);
+        Configuration.getInstance().setCacheMapTileCount((short) 200);
 
         setContentView(R.layout.carte_prop);
 
@@ -79,28 +80,10 @@ public class CarteProp extends AppCompatActivity {
             return;
         }
 
-        OnlineTileSourceBase tileSource = new OnlineTileSourceBase(
-                "OpenStreetMap France",
-                0,
-                19,
-                256,
-                ".png",
-                new String[]{
-                        "https://a.tile.openstreetmap.fr/osmfr/",
-                        "https://b.tile.openstreetmap.fr/osmfr/",
-                        "https://c.tile.openstreetmap.fr/osmfr/"
-                }
-        ) {
-            @Override
-            public String getTileURLString(long tileIndex) {
-                return getBaseUrl()
-                        + MapTileIndex.getZoom(tileIndex) + "/"
-                        + MapTileIndex.getX(tileIndex) + "/"
-                        + MapTileIndex.getY(tileIndex) + ".png";
-            }
-        };
-
-        mapView.setTileSource(tileSource);
+        // ✅ NOUVEAU - OSM Allemagne, sans clé API, sans 403
+        mapView.setTileSource(new XYTileSource("OSM_DE",
+                0, 19, 256, ".png",
+                new String[]{"https://tile.openstreetmap.de/"}));
         mapView.setMultiTouchControls(true);
 
         GeoPoint centreInitial = new GeoPoint(36.8065, 10.1815);

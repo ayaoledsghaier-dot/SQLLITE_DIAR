@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.app.Activity;
@@ -18,18 +17,12 @@ public class NavigationEtudiant {
 
         if (activity == null) return;
 
-        View barreEtudiant = activity.findViewById(
-                R.id.barre_navigation_etudiant
-        );
-
-        View barreProp = activity.findViewById(
-                R.id.barre_navigation_proprietaire
-        );
+        View barreEtudiant = activity.findViewById(R.id.barre_navigation_etudiant);
+        View barreProp = activity.findViewById(R.id.barre_navigation_proprietaire);
 
         if (barreEtudiant != null) {
             barreEtudiant.setVisibility(View.VISIBLE);
         }
-
         if (barreProp != null) {
             barreProp.setVisibility(View.GONE);
         }
@@ -59,7 +52,6 @@ public class NavigationEtudiant {
         };
 
         for (int i = 0; i < itemIds.length; i++) {
-
             final int index = i;
             boolean active = (i == pageActive);
 
@@ -70,16 +62,10 @@ public class NavigationEtudiant {
             if (icon != null) {
                 icon.setColorFilter(active ? VERT : GRIS);
             }
-
             if (text != null) {
                 text.setTextColor(active ? VERT : GRIS);
-
-                text.setTypeface(
-                        Typeface.DEFAULT,
-                        active ? Typeface.BOLD : Typeface.NORMAL
-                );
+                text.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
             }
-
             if (item != null) {
                 item.setOnClickListener(v -> {
                     ouvrir(activity, index, pageActive);
@@ -88,10 +74,7 @@ public class NavigationEtudiant {
         }
     }
 
-    private static void ouvrir(
-            Activity activity,
-            int nouvellePage,
-            int pageActive) {
+    private static void ouvrir(Activity activity, int nouvellePage, int pageActive) {
 
         if (nouvellePage == pageActive) return;
 
@@ -103,34 +86,34 @@ public class NavigationEtudiant {
                 interface22.class
         };
 
-        if (nouvellePage < 0 ||
-                nouvellePage >= destinations.length) {
+        if (nouvellePage < 0 || nouvellePage >= destinations.length) {
             return;
         }
 
-        SessionManager sessionManager =
-                new SessionManager(activity);
-
+        SessionManager sessionManager = new SessionManager(activity);
         String email = sessionManager.getEmail();
 
         if (email == null || email.trim().isEmpty()) {
-            email = activity.getIntent().getStringExtra(
-                    "emailEtudiant"
-            );
+            email = activity.getIntent().getStringExtra("emailEtudiant");
         }
-
+        if (email == null || email.trim().isEmpty()) {
+            email = activity.getIntent().getStringExtra("USER_EMAIL");
+        }
         if (email == null) {
             email = "";
         }
+        email = email.trim().toLowerCase();
 
-        Intent intent = new Intent(
-                activity,
-                destinations[nouvellePage]
-        );
-
+        Intent intent = new Intent(activity, destinations[nouvellePage]);
         intent.putExtra("emailEtudiant", email);
+        intent.putExtra("USER_EMAIL", email);
         intent.putExtra("typeCompte", "ETUDIANT");
         intent.putExtra("typeUtilisateur", "etudiant");
+
+        // C'est ça qui manquait : quand on clique sur Favoris, on ouvre l'onglet Colocs
+        if (nouvellePage == 2) {
+            intent.putExtra("ONGLET", "colocs");
+        }
 
         activity.startActivity(intent);
         activity.finish();

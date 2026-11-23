@@ -1,4 +1,3 @@
-
 package com.example.diar;
 
 import android.content.Intent;
@@ -16,9 +15,10 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.osmdroid.config.Configuration;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.CopyrightOverlay;
 import org.osmdroid.views.overlay.Marker;
 
 public class DetailAnnonce extends AppCompatActivity {
@@ -48,11 +48,20 @@ public class DetailAnnonce extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // ✅ Configuration OSMDroid - OBLIGATOIRE avant setContentView pour la carte
+        Configuration.getInstance().load(
+                getApplicationContext(),
+                getSharedPreferences("osmdroid", MODE_PRIVATE)
+        );
+        Configuration.getInstance().setUserAgentValue("DIAR/1.0 (Android; com.example.diar)");
+        Configuration.getInstance().setTileDownloadThreads((short) 2);
+        Configuration.getInstance().setTileDownloadMaxQueueSize((short) 20);
+        Configuration.getInstance().setCacheMapTileCount((short) 200);
+
         setContentView(R.layout.detail_annonce);
 
         dbHelper = new DatabaseHelper(this);
-
-        Configuration.getInstance().setUserAgentValue(getPackageName());
 
         imgDetailAnnonce = findViewById(R.id.imgDetailAnnonce);
         tvDetailTitre = findViewById(R.id.tvDetailTitre);
@@ -69,60 +78,74 @@ public class DetailAnnonce extends AppCompatActivity {
         btnDemanderVisite = findViewById(R.id.btnDemanderVisite);
 
         Button btnRetour = findViewById(R.id.btnRetourDetail);
-        btnRetour.setOnClickListener(v -> finish());
+        if (btnRetour != null) btnRetour.setOnClickListener(v -> finish());
 
-        mapDetailAnnonce.setTileSource(TileSourceFactory.MAPNIK);
-        mapDetailAnnonce.setMultiTouchControls(true);
+        // ✅ OSM Allemagne - sans 403, comme Interface9
+        if (mapDetailAnnonce != null) {
+            mapDetailAnnonce.setTileSource(new XYTileSource("OSM_DE",
+                    0, 19, 256, ".png",
+                    new String[]{"https://tile.openstreetmap.de/"}));
+            mapDetailAnnonce.setMultiTouchControls(true);
+            mapDetailAnnonce.setUseDataConnection(true);
+        }
 
         // Récupération de la session étudiant
         SessionManager session = new SessionManager(this);
         etudiantEmail = session.getEmail();
+        if (etudiantEmail == null) etudiantEmail = "";
+        if (etudiantEmail.isEmpty()) {
+            etudiantEmail = getIntent().getStringExtra("USER_EMAIL");
+            if (etudiantEmail == null) etudiantEmail = "";
+        }
 
         etudiantNom = getIntent().getStringExtra("etudiantNom");
-
         if (etudiantNom == null || etudiantNom.trim().isEmpty()) {
             etudiantNom = "Étudiant";
         }
 
-        // Récupération ID annonce
-        idAnnonce = getIntent().getLongExtra("idAnnonce", -1);
-
-        if (idAnnonce <= 0) {
-            idAnnonce = getIntent().getIntExtra("idAnnonce", -1);
+        // ✅ Récupération ID annonce - compatible INT et LONG
+        // AnnonceAdapter envoie un INT, donc on lit INT d'abord
+        if (getIntent().hasExtra("idAnnonce")) {
+            try {
+                idAnnonce = getIntent().getIntExtra("idAnnonce", -1);
+            } catch (Exception e) {
+                idAnnonce = -1;
+            }
+            if (idAnnonce <= 0) {
+                try {
+                    idAnnonce = getIntent().getLongExtra("idAnnonce", -1);
+                } catch (Exception e) {
+                    idAnnonce = -1;
+                }
+            }
+        }
+        // Ancien nom, au cas où
+        if (idAnnonce <= 0 && getIntent().hasExtra("annonceId")) {
+            idAnnonce = getIntent().getLongExtra("annonceId", -1);
         }
 
         if (idAnnonce <= 0) {
-            Toast.makeText(this,
-                    "ID annonce introuvable",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ID annonce introuvable", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
 
-        btnContacter.setEnabled(false);
+        if (btnContacter != null) btnContacter.setEnabled(false);
 
         // Bouton Chat
-        btnContacter.setOnClickListener(v -> ouvrirChat());
+        if (btnContacter != null) btnContacter.setOnClickListener(v -> ouvrirChat());
 
         // Bouton Demande de visite
-        btnDemanderVisite.setOnClickListener(v -> ouvrirInterface15());
+        if (btnDemanderVisite != null) btnDemanderVisite.setOnClickListener(v -> ouvrirInterface15());
 
         // Charger les informations
         chargerDetailAnnonce();
     }
 
-    // =========================================
-    // CHARGER DETAIL ANNONCE
-    // =========================================
-
     private void chargerDetailAnnonce() {
-
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-
         Cursor cursor = null;
-
         try {
-
             cursor = db.query(
                     "Annonce",
                     null,
@@ -131,59 +154,48 @@ public class DetailAnnonce extends AppCompatActivity {
                     null, null, null
             );
 
-            if (!cursor.moveToFirst()) {
-
-                Toast.makeText(this,
-                        "Annonce introuvable",
-                        Toast.LENGTH_LONG).show();
-
+            if (cursor == null || !cursor.moveToFirst()) {
+                Toast.makeText(this, "Annonce introuvable", Toast.LENGTH_LONG).show();
                 finish();
                 return;
             }
 
-            String titre = cursor.getString(
-                    cursor.getColumnIndexOrThrow("titre"));
+            String titre = getString(cursor, "titre");
+            String description = getString(cursor, "description");
+            double prix = getDouble(cursor, "prix");
+            int nbPersonnes = getInt(cursor, "nbPersonnes");
+            int nbChambres = getInt(cursor, "nbChambres");
+            double surface = getDouble(cursor, "surface");
+            String ville = getString(cursor, "ville");
+            String quartier = getString(cursor, "quartier");
+            String adresse = getString(cursor, "adresse");
 
-            String description = cursor.getString(
-                    cursor.getColumnIndexOrThrow("description"));
+            latitude = getDouble(cursor, "latitude");
+            longitude = getDouble(cursor, "longitude");
 
-            double prix = cursor.getDouble(
-                    cursor.getColumnIndexOrThrow("prix"));
+            proprietaireEmail = getString(cursor, "emailProprietaire");
+            proprietaireNom = getString(cursor, "nomProprietaire");
 
-            int nbPersonnes = cursor.getInt(
-                    cursor.getColumnIndexOrThrow("nbPersonnes"));
-
-            latitude = cursor.getDouble(
-                    cursor.getColumnIndexOrThrow("latitude"));
-
-            longitude = cursor.getDouble(
-                    cursor.getColumnIndexOrThrow("longitude"));
-
-            proprietaireEmail = cursor.getString(
-                    cursor.getColumnIndexOrThrow("emailProprietaire"));
-
-            proprietaireNom = cursor.getString(
-                    cursor.getColumnIndexOrThrow("nomProprietaire"));
-
-            tvDetailTitre.setText(titre);
-
+            tvDetailTitre.setText(titre.isEmpty() ? "Sans titre" : titre);
             tvDetailDescription.setText(
-                    description == null ? "Aucune description" : description
+                    (description == null || description.isEmpty()) ? "Aucune description" : description
             );
-
             tvDetailPrix.setText(prix + " DT / mois");
-
             tvDetailPersonnes.setText(
-                    "Nombre de personnes : " + nbPersonnes
+                    "Nombre de personnes : " + nbPersonnes +
+                            " • Chambres : " + nbChambres +
+                            " • Surface : " + surface + " m²" +
+                            "\n📍 " + quartier + ", " + ville +
+                            (adresse.isEmpty() ? "" : "\n" + adresse)
             );
 
             tvDetailLatitude.setText("Latitude : " + latitude);
             tvDetailLongitude.setText("Longitude : " + longitude);
 
-            if (proprietaireNom == null || proprietaireNom.trim().isEmpty()
-                    || proprietaireEmail == null || proprietaireEmail.trim().isEmpty()) {
-
-                recupererProprietaire();
+            // ✅ Si le proprio est vide, on ne cherche pas avec un email vide
+            // On garde juste "Propriétaire" comme nom par défaut
+            if (proprietaireNom == null || proprietaireNom.trim().isEmpty()) {
+                proprietaireNom = "Propriétaire";
             }
 
             afficherToutesLesPhotos();
@@ -191,72 +203,26 @@ public class DetailAnnonce extends AppCompatActivity {
             if (latitude >= -90 && latitude <= 90
                     && longitude >= -180 && longitude <= 180
                     && (latitude != 0 || longitude != 0)) {
-
                 afficherLocalisation(latitude, longitude);
+            } else {
+                if (tvDetailLatitude != null) tvDetailLatitude.setText("Localisation non disponible sur la carte");
             }
 
-            btnContacter.setEnabled(true);
+            if (btnContacter != null) btnContacter.setEnabled(true);
 
         } catch (Exception e) {
-
-            Toast.makeText(this,
-                    "Erreur : " + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
-
+            Toast.makeText(this, "Erreur : " + e.getMessage(), Toast.LENGTH_LONG).show();
         } finally {
-
-            if (cursor != null) {
-                cursor.close();
-            }
+            if (cursor != null) cursor.close();
         }
     }
-
-    // =========================================
-    // RECUPERER PROPRIETAIRE
-    // =========================================
-
-    private void recupererProprietaire() {
-
-        if (proprietaireEmail == null) proprietaireEmail = "";
-        if (proprietaireNom == null) proprietaireNom = "";
-
-        if (!proprietaireEmail.isEmpty() && !proprietaireNom.isEmpty()) {
-            return;
-        }
-
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-
-        Cursor cursor = db.query(
-                "Proprietaire",
-                new String[]{"nom", "email"},
-                "email=?",
-                new String[]{proprietaireEmail},
-                null, null, null
-        );
-
-        if (cursor.moveToFirst()) {
-
-            proprietaireNom = cursor.getString(
-                    cursor.getColumnIndexOrThrow("nom"));
-
-            proprietaireEmail = cursor.getString(
-                    cursor.getColumnIndexOrThrow("email"));
-        }
-
-        cursor.close();
-    }
-
-    // =========================================
-    // AFFICHER PHOTOS
-    // =========================================
 
     private void afficherToutesLesPhotos() {
-
+        if (layoutPhotos == null) return;
         layoutPhotos.removeAllViews();
-        imgDetailAnnonce.setImageDrawable(null);
+        if (imgDetailAnnonce != null) imgDetailAnnonce.setImageDrawable(null);
 
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-
         Cursor cursor = db.query(
                 "AnnoncePhoto",
                 new String[]{"photoPath"},
@@ -266,228 +232,136 @@ public class DetailAnnonce extends AppCompatActivity {
         );
 
         int index = 0;
-
         while (cursor.moveToNext()) {
-
-            String chemin = cursor.getString(
-                    cursor.getColumnIndexOrThrow("photoPath"));
-
-            if (chemin == null || chemin.trim().isEmpty()) {
-                continue;
-            }
-
+            String chemin = cursor.getString(cursor.getColumnIndexOrThrow("photoPath"));
+            if (chemin == null || chemin.trim().isEmpty()) continue;
             Bitmap bitmap = BitmapFactory.decodeFile(chemin);
+            if (bitmap == null) continue;
 
-            if (bitmap == null) {
-                continue;
-            }
-
-            if (index == 0) {
+            if (index == 0 && imgDetailAnnonce != null) {
                 imgDetailAnnonce.setImageBitmap(bitmap);
             }
 
             ImageView miniature = new ImageView(this);
-
-            LinearLayout.LayoutParams params =
-                    new LinearLayout.LayoutParams(
-                            dpToPx(100),
-                            dpToPx(90)
-                    );
-
-            params.setMargins(
-                    dpToPx(5),
-                    dpToPx(5),
-                    dpToPx(5),
-                    dpToPx(5)
-            );
-
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(100), dpToPx(90));
+            params.setMargins(dpToPx(5), dpToPx(5), dpToPx(5), dpToPx(5));
             miniature.setLayoutParams(params);
-
             miniature.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
             miniature.setImageBitmap(bitmap);
-
-            miniature.setOnClickListener(v ->
-                    imgDetailAnnonce.setImageBitmap(bitmap)
-            );
-
+            miniature.setOnClickListener(v -> {
+                if (imgDetailAnnonce != null) imgDetailAnnonce.setImageBitmap(bitmap);
+            });
             layoutPhotos.addView(miniature);
-
             index++;
         }
-
         cursor.close();
 
-        if (index == 0) {
-            imgDetailAnnonce.setImageResource(
-                    android.R.drawable.ic_menu_gallery
-            );
+        if (index == 0 && imgDetailAnnonce != null) {
+            imgDetailAnnonce.setImageResource(R.drawable.appart);
         }
     }
 
-    // =========================================
-    // AFFICHER LOCALISATION
-    // =========================================
-
     private void afficherLocalisation(double lat, double lon) {
-
+        if (mapDetailAnnonce == null) return;
         GeoPoint position = new GeoPoint(lat, lon);
-
         mapDetailAnnonce.getController().setZoom(15.0);
         mapDetailAnnonce.getController().setCenter(position);
 
         Marker marker = new Marker(mapDetailAnnonce);
-
         marker.setPosition(position);
-
         marker.setTitle("Localisation de l'annonce");
-
-        marker.setAnchor(
-                Marker.ANCHOR_CENTER,
-                Marker.ANCHOR_BOTTOM
-        );
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
 
         mapDetailAnnonce.getOverlays().clear();
-
         mapDetailAnnonce.getOverlays().add(marker);
-
+        mapDetailAnnonce.getOverlays().add(new CopyrightOverlay(this));
         mapDetailAnnonce.invalidate();
     }
 
-    // =========================================
-    // OUVRIR CHAT
-    // =========================================
-
     private void ouvrirChat() {
-
         if (etudiantEmail == null || etudiantEmail.trim().isEmpty()) {
-
-            Toast.makeText(this,
-                    "Veuillez vous connecter",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Veuillez vous connecter", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (proprietaireEmail == null || proprietaireEmail.trim().isEmpty()) {
-
-            Toast.makeText(this,
-                    "Email du propriétaire introuvable",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Email du propriétaire introuvable", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (etudiantEmail.equalsIgnoreCase(proprietaireEmail)) {
-
-            Toast.makeText(this,
-                    "Vous ne pouvez pas contacter votre propre annonce",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Vous ne pouvez pas contacter votre propre annonce", Toast.LENGTH_LONG).show();
             return;
         }
 
-        Intent intent = new Intent(
-                DetailAnnonce.this,
-                ChatEtudiant.class
-        );
-
+        Intent intent = new Intent(DetailAnnonce.this, ChatEtudiant.class);
         intent.putExtra("etudiantEmail", etudiantEmail);
         intent.putExtra("etudiantNom", etudiantNom);
         intent.putExtra("proprietaireEmail", proprietaireEmail);
-
-        intent.putExtra(
-                "proprietaireNom",
-                proprietaireNom == null || proprietaireNom.isEmpty()
-                        ? "Propriétaire" : proprietaireNom
-        );
-
+        intent.putExtra("proprietaireNom", proprietaireNom == null || proprietaireNom.isEmpty() ? "Propriétaire" : proprietaireNom);
         intent.putExtra("annonceId", idAnnonce);
-
         startActivity(intent);
     }
 
-    // =========================================
-    // OUVRIR INTERFACE15
-    // =========================================
-
     private void ouvrirInterface15() {
-
         if (etudiantEmail == null || etudiantEmail.trim().isEmpty()) {
-
-            Toast.makeText(this,
-                    "Veuillez vous connecter",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Veuillez vous connecter", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (proprietaireEmail == null || proprietaireEmail.trim().isEmpty()) {
-
-            Toast.makeText(this,
-                    "Propriétaire introuvable",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Propriétaire introuvable", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (etudiantEmail.equalsIgnoreCase(proprietaireEmail)) {
-
-            Toast.makeText(this,
-                    "Vous ne pouvez pas réserver votre propre annonce",
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Vous ne pouvez pas réserver votre propre annonce", Toast.LENGTH_LONG).show();
             return;
         }
 
-        Intent intent = new Intent(
-                DetailAnnonce.this,
-                Interface15.class
-        );
-
+        Intent intent = new Intent(DetailAnnonce.this, Interface15.class);
         intent.putExtra("idAnnonce", idAnnonce);
         intent.putExtra("etudiantEmail", etudiantEmail);
         intent.putExtra("etudiantNom", etudiantNom);
         intent.putExtra("proprietaireEmail", proprietaireEmail);
         intent.putExtra("proprietaireNom", proprietaireNom);
-
         startActivity(intent);
     }
 
-    // =========================================
-    // DP TO PX
-    // =========================================
-
-    private int dpToPx(int dp) {
-
-        return (int) (
-                dp * getResources().getDisplayMetrics().density
-        );
+    private String getString(Cursor cursor, String column) {
+        int idx = cursor.getColumnIndex(column);
+        if (idx == -1 || cursor.isNull(idx)) return "";
+        String v = cursor.getString(idx);
+        return v == null ? "" : v;
     }
 
-    // =========================================
-    // MAP LIFECYCLE
-    // =========================================
+    private int getInt(Cursor cursor, String column) {
+        int idx = cursor.getColumnIndex(column);
+        if (idx == -1 || cursor.isNull(idx)) return 0;
+        return cursor.getInt(idx);
+    }
+
+    private double getDouble(Cursor cursor, String column) {
+        int idx = cursor.getColumnIndex(column);
+        if (idx == -1 || cursor.isNull(idx)) return 0;
+        return cursor.getDouble(idx);
+    }
+
+    private int dpToPx(int dp) {
+        return (int) (dp * getResources().getDisplayMetrics().density);
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        if (mapDetailAnnonce != null) {
-            mapDetailAnnonce.onResume();
-        }
+        if (mapDetailAnnonce != null) mapDetailAnnonce.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-
-        if (mapDetailAnnonce != null) {
-            mapDetailAnnonce.onPause();
-        }
+        if (mapDetailAnnonce != null) mapDetailAnnonce.onPause();
     }
 
     @Override
     protected void onDestroy() {
-
-        if (mapDetailAnnonce != null) {
-            mapDetailAnnonce.onDetach();
-        }
-
+        if (mapDetailAnnonce != null) mapDetailAnnonce.onDetach();
         super.onDestroy();
     }
 }

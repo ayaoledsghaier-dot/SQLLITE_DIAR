@@ -74,4 +74,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // biblio tessercat pour lire l'attestation et extraire ses données
+    implementation("com.rmtheis:tess-two:9.1.0")
 }
